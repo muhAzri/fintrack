@@ -1,4 +1,3 @@
-import { logoutAction } from "@/app/actions/auth";
 import { requireUser } from "@/lib/auth/dal";
 import { moneyStorageView } from "@/lib/accounts";
 import { getNetWorth } from "@/lib/ledger";
@@ -14,22 +13,8 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 p-6 sm:p-10">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-black/60 dark:text-white/60">{user.name ?? user.email}</p>
-        </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="rounded-md border border-black/15 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            Log out
-          </button>
-        </form>
-      </header>
-
+    <main>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Dashboard</h1>
       <section className="grid gap-4 sm:grid-cols-3">
         <Tile label="Net worth" value={formatIDR(money(netWorth))} />
         <Tile label="Total liquid" value={formatIDR(money(storage.totalLiquid))} />
