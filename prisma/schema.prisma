@@ -1,0 +1,400 @@
+// Fintrack — "Digital Accountant" · Prisma schema
+// Source of truth: docs/REQUIREMENTS.md (Draft v1.2). Every model here traces to §3.
+//
+// Design invariants baked into this schema (see REQUIREMENTS §0, §2, §8):
+//   P1  Double-entry: a transaction has >=2 postings that sum to exactly 0.
+//   P2  Money = integer smallest unit (whole rupiah) => BigInt, never Float.
+//   P3  Append-only: corrections are reversing entries (Transaction.reversalOf),
+//       not destructive edits. No hard deletes of ledger rows.
+//   P4  Rates are stored as Decimal, but ALL money results are integer (§8).
+//   P6  The ledger is the truth. There is NO stored "current balance" field on
+//       accounts — balances are always derived from postings + openingBalance.
+//
+// NOTE ON THE Σ=0 INVARIANT (§3.4): Prisma cannot express a cross-row / deferred
+// constraint. It is enforced in the app layer AND by a Postgres CONSTRAINT TRIGGER
+// installed via a hand-written migration (Prisma has no schema construct for
+// triggers) — see migration 20260708040731_ledger_invariant_and_due_events.
+//
+// NOTE ON due_events (§3.9): intentionally NOT a table. It is a derived view over
+// statements + installment_schedules + recurring_rules, created in the same
+// migration above (a VIEW body cannot be generated from the Prisma schema either).
+//
+// NOTE ON multi-user (Open Question §13.2): MVP is single-user. No User model /
+// userId yet. When multi-user lands, add `user User @relation` + userId to the
+// root entities (Account, Category, Transaction, RecurringRule) and scope queries.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: connection config lives in prisma.config.ts (driver adapter),
+// not here. The datasource block only declares the provider.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+  EQUITY
+}
+
+/// Combined subtype set for ASSET and LIABILITY accounts (§3.1).
+/// App-layer validation enforces subtype⇄type compatibility:
+///   ASSET     -> CASH | BANK | EWALLET | RECEIVABLE | INVESTMENT | OTHER
+///   LIABILITY -> CREDIT_CARD | PAYLATER | LOAN | PERSONAL_DEBT | OTHER
+enum AccountSubtype {
+  CASH
+  BANK
+  EWALLET
+  RECEIVABLE
+  INVESTMENT
+  CREDIT_CARD
+  PAYLATER
+  LOAN
+  PERSONAL_DEBT
+  OTHER
+}
+
+enum CategoryKind {
+  EXPENSE
+  INCOME
+}
+
+/// UX / reporting hint only — the truth always lives in the postings (§3.3).
+enum TransactionType {
+  EXPENSE
+  INCOME
+  TRANSFER
+  CC_PAYMENT
+  ADJUSTMENT
+  INSTALLMENT_PURCHASE
+  REFUND
+}
+
+enum CreditInstrument {
+  CREDIT_CARD
+  PAYLATER
+}
+
+enum StatementStatus {
+  OPEN // cycle in progress
+  CLOSED // cut, awaiting payment
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum InstallmentPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum InstallmentScheduleStatus {
+  SCHEDULED
+  BILLED
+  PAID
+}
+
+enum RecurringFrequency {
+  MONTHLY
+  WEEKLY
+  YEARLY
+  CUSTOM
+}
+
+// ---------------------------------------------------------------------------
+// Core ledger (§3.1 – §3.4)
+// ---------------------------------------------------------------------------
+
+/// A "money storage" or a ledger bucket: asset/liability accounts, plus the
+/// income/expense/equity accounts that transactions post against (§3.1, §6.1a).
+model Account {
+  id             String          @id @default(cuid())
+  name           String
+  type           AccountType
+  subtype        AccountSubtype?
+  currency       String          @default("IDR") @db.Char(3)
+  /// Natural ledger sign (§2.1). Balance is DERIVED: openingBalance + Σ postings.
+  openingBalance BigInt          @default(0)
+  openingDate    DateTime?       @db.Date
+  isArchived     Boolean         @default(false)
+  /// Cards only — last 4 digits. NEVER store a full PAN (§3.1, §7 security).
+  last4          String?         @db.Char(4)
+  icon           String?
+  color          String?
+  /// Optional custom grouping label for the "Where is my money" view (§6.1a):
+  /// e.g. "Daily", "Savings", "Emergency".
+  group          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  postings      Posting[]
+  /// One-to-one billing parameters when this is a CREDIT_CARD/PAYLATER (§3.5).
+  creditAccount CreditAccount?  @relation("AccountCreditParams")
+  /// Reserved (§3.5): credit accounts that use this account as autopay source.
+  autopayFor    CreditAccount[] @relation("AutopaySource")
+
+  @@index([type])
+  @@index([subtype])
+  @@index([isArchived])
+  @@map("accounts")
+}
+
+/// Hierarchical classification for expense & income legs (§3.2).
+model Category {
+  id       String       @id @default(cuid())
+  name     String
+  parentId String?
+  kind     CategoryKind
+  /// _reserved_ for the tax phase (§3.2). Not used in MVP.
+  taxRelevant Boolean   @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  postings Posting[]
+
+  @@index([parentId])
+  @@index([kind])
+  @@map("categories")
+}
+
+/// Journal header (§3.3). Append-only (P3): to correct, create a reversing
+/// transaction pointing back via reversalOf.
+model Transaction {
+  id          String          @id @default(cuid())
+  /// Economic event date (§3.3). Drives balances & accrual cash-flow (§2.3).
+  date        DateTime        @db.Date
+  /// Posted date for credit instruments; falls back to `date` when null (§5.2).
+  postedDate  DateTime?       @db.Date
+  description String
+  merchant    String?
+  type        TransactionType
+  attachmentUrl String?
+  note        String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // --- relations ---
+  postings Posting[]
+
+  /// Set when this transaction reverses another (P3, §3.3).
+  reversalOfId String?
+  reversalOf   Transaction?  @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy   Transaction[] @relation("Reversal")
+
+  /// The billing cycle this transaction was stamped into once formed (§5.2).
+  statementId String?
+  statement   Statement? @relation(fields: [statementId], references: [id])
+
+  /// When type = INSTALLMENT_PURCHASE, the plan this purchase belongs to (§3.3).
+  installmentPlanId String?
+  installmentPlan   InstallmentPlan? @relation("PlanTransactions", fields: [installmentPlanId], references: [id])
+
+  /// Back-relation: the plan whose original purchase IS this transaction (§3.7).
+  originatedPlan InstallmentPlan? @relation("PurchaseTransaction")
+
+  @@index([date])
+  @@index([postedDate])
+  @@index([type])
+  @@index([statementId])
+  @@index([installmentPlanId])
+  @@index([reversalOfId])
+  @@map("transactions")
+}
+
+/// Journal leg (§3.4). CRITICAL: Σ(amount) over one transaction = 0, and every
+/// transaction has >= 2 postings. Enforced in-app AND by a deferred DB trigger
+/// (prisma/sql/ledger_invariant.sql).
+model Posting {
+  id            String  @id @default(cuid())
+  transactionId String
+  accountId     String
+  /// Signed integer (§2.1): debit = positive (+), credit = negative (−).
+  amount        BigInt
+  /// Category for expense/income legs (§3.4). Null for asset/liability legs.
+  categoryId    String?
+  createdAt     DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account     Account     @relation(fields: [accountId], references: [id])
+  category    Category?   @relation(fields: [categoryId], references: [id])
+
+  @@index([transactionId])
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("postings")
+}
+
+// ---------------------------------------------------------------------------
+// Credit instruments: cards & paylater share ONE model (§3.5, §5.1)
+// ---------------------------------------------------------------------------
+
+/// Billing parameters for a CREDIT_CARD/PAYLATER account (§3.5). One row per
+/// such account. Cards and paylater differ ONLY by these parameters (§5.1).
+model CreditAccount {
+  id         String           @id @default(cuid())
+  accountId  String           @unique
+  instrument CreditInstrument
+  creditLimit BigInt?
+
+  /// Day of month the statement closes (1–31); month-end clamped (§5.5).
+  statementDay Int
+  /// Either dueDay OR dueOffsetDays is set — exactly one (§3.5).
+  dueDay          Int?
+  /// due = statementDate + N days (paylater often uses this) (§3.5).
+  dueOffsetDays   Int?
+  gracePeriodDays Int?
+
+  /// Ratio, e.g. 0.0175 = 1.75%/month. Result is always rounded to integer (§8).
+  interestRateMonthly Decimal  @db.Decimal(9, 6)
+  minPaymentRate      Decimal? @db.Decimal(9, 6)
+  minPaymentFloor     BigInt?
+  lateFee             BigInt?
+
+  /// _reserved_ (§3.5): optional default cash/bank source for autopay.
+  autopaySourceAccountId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account          Account  @relation("AccountCreditParams", fields: [accountId], references: [id])
+  autopaySource    Account? @relation("AutopaySource", fields: [autopaySourceAccountId], references: [id])
+  statements       Statement[]
+  installmentPlans InstallmentPlan[]
+
+  @@index([instrument])
+  @@map("credit_accounts")
+}
+
+/// One billing cycle, forming or formed (§3.6). All fields BigInt rupiah.
+/// statementBalance = previousBalance + purchasesTotal + installmentsDue
+///                    + interestCharged + feesCharged − creditsTotal
+///                    − payments_applied_before_close   (§3.6)
+model Statement {
+  id              String          @id @default(cuid())
+  creditAccountId String
+  periodStart     DateTime        @db.Date // first day of cycle
+  periodEnd       DateTime        @db.Date // = statement/cut-off date
+  dueDate         DateTime        @db.Date
+
+  previousBalance  BigInt @default(0)
+  purchasesTotal   BigInt @default(0)
+  installmentsDue  BigInt @default(0)
+  interestCharged  BigInt @default(0)
+  feesCharged      BigInt @default(0)
+  creditsTotal     BigInt @default(0)
+  statementBalance BigInt @default(0)
+  minimumDue       BigInt @default(0)
+  paidAmount       BigInt @default(0)
+
+  status StatementStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creditAccount        CreditAccount         @relation(fields: [creditAccountId], references: [id])
+  transactions         Transaction[]
+  installmentSchedules InstallmentSchedule[]
+
+  /// One statement per (creditAccount, cut-off date) — idempotent generation (§3.6, §7).
+  @@unique([creditAccountId, periodEnd])
+  @@index([creditAccountId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("statements")
+}
+
+// ---------------------------------------------------------------------------
+// Installments (§3.7, §5.3)
+// ---------------------------------------------------------------------------
+
+/// An installment plan carried by a credit/paylater account (§3.7). The full
+/// liability is recognized up front at purchase (§5.3 MVP decision); the plan
+/// only shapes how the debt is billed across statements.
+model InstallmentPlan {
+  id                    String                @id @default(cuid())
+  creditAccountId       String
+  purchaseTransactionId String                @unique
+  principal             BigInt
+  tenorMonths           Int
+  interestRateMonthly   Decimal               @db.Decimal(9, 6) // 0 for 0% plans
+  adminFee              BigInt?
+  monthlyAmount         BigInt
+  startDate             DateTime              @db.Date
+  status                InstallmentPlanStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creditAccount       CreditAccount         @relation(fields: [creditAccountId], references: [id])
+  /// The original purchase transaction (§3.7).
+  purchaseTransaction Transaction           @relation("PurchaseTransaction", fields: [purchaseTransactionId], references: [id])
+  /// Any transactions tagged with this plan (e.g. per-month interest legs, §5.3).
+  transactions        Transaction[]         @relation("PlanTransactions")
+  schedules           InstallmentSchedule[]
+
+  @@index([creditAccountId])
+  @@index([status])
+  @@map("installment_plans")
+}
+
+/// One row per due installment (§3.7). Components kept separate so rounding can
+/// be reconciled on the final installment (§8.3): totalAmount = principal + interest.
+model InstallmentSchedule {
+  id                 String                    @id @default(cuid())
+  planId             String
+  sequence           Int // 1..tenor
+  dueDate            DateTime                  @db.Date
+  principalComponent BigInt
+  interestComponent  BigInt
+  totalAmount        BigInt
+  /// The cycle this installment is billed into (§3.7). Null until billed.
+  statementId        String?
+  status             InstallmentScheduleStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan      InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  statement Statement?      @relation(fields: [statementId], references: [id])
+
+  @@unique([planId, sequence])
+  @@index([planId])
+  @@index([statementId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("installment_schedules")
+}
+
+// ---------------------------------------------------------------------------
+// Recurring rules (§3.8) — reserved; minimal in MVP
+// ---------------------------------------------------------------------------
+
+/// Templates that generate draft/auto-posted transactions: salary,
+/// subscriptions, fixed installments (§3.8). MVP may only store template + reminder.
+model RecurringRule {
+  id           String             @id @default(cuid())
+  name         String
+  /// Serialized transaction template (accounts, amounts, category) (§3.8).
+  templateJson Json
+  frequency    RecurringFrequency
+  nextRun      DateTime           @db.Date
+  /// If false, generate a draft to confirm rather than auto-post (§3.8).
+  autoPost     Boolean            @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nextRun])
+  @@map("recurring_rules")
+}
