@@ -1,6 +1,6 @@
 # Requirements Document — Personal Finance Application ("Digital Accountant")
 
-> **Status:** Draft v1.2 · **Date:** 2026-07-08 · **Base currency:** IDR (Indonesian Rupiah)
+> **Status:** Draft v1.3 · **Date:** 2026-07-08 · **Base currency:** IDR (Indonesian Rupiah)
 > This document is the **single source of truth** for scope, data model, and business rules. Every implementation decision must trace back here. If something changes, change this document **first**, then the code.
 
 ---
@@ -58,6 +58,7 @@ A personal finance application that behaves like a **personal accountant**, not 
 3. **Credit cards & paylater as first-class citizens** — billing cycles, statements, installment plans, bill payments.
 4. **Due-date calendar + reminders** — a timeline of what is due in the next 7/14/30 days and whether liquid cash covers it.
 5. **Basic dashboard** — net worth, total outstanding liabilities (broken down per instrument), monthly cash flow.
+6. **Authentication & multi-user** — email + password login, DB-backed revocable sessions, and a forgot-password flow via emailed reset link (SMTP). All financial data is **scoped per user** (multi-tenant). See §6.0. This is mandatory before hosting: without it, anyone with the URL could read and corrupt another person's financial data.
 
 ### 1.2 Out of MVP (later phases — DO NOT build yet)
 
@@ -155,6 +156,8 @@ Cr  Expense:Food                    −50,000
 ## 3. Data Model (Logical Schema)
 
 > Notation: `PK` = primary key, `FK` = foreign key, `?` = nullable. All monetary amounts are `BIGINT` integers in whole rupiah (1 = Rp1). All timestamps are stored in UTC. Every entity implicitly has `id`, `created_at`, `updated_at` unless stated otherwise.
+>
+> **Multi-tenancy (§13.2, resolved):** the app is multi-user. The four aggregate roots — `accounts`, `categories`, `transactions`, `recurring_rules` — each carry a `user_id` FK → `users` and are scoped per user. Child tables (`postings`, `credit_accounts`, `statements`, `installment_plans`, `installment_schedules`) do **not** duplicate `user_id`; they inherit tenancy through their parent. The application layer **must** guarantee that every leg/relation of a single write belongs to the same user (e.g. a posting's `account` and its `transaction` share one `user_id`, and a payment's source & target accounts are both owned by the acting user).
 
 ### 3.1 `accounts`
 
@@ -310,6 +313,50 @@ Preferably a **derived view** over `statements`, `installment_schedules`, and `r
 | account_id | which instrument |
 | is_covered_by_cash | computed: does liquid cash cover cumulative dues up to this date? |
 
+> The view exposes each row's owning `user_id` (via `account → user_id`) so the calendar can filter per user; `is_covered_by_cash` is computed in the app/query layer over the user's own liquid balance (§5.6), not stored.
+
+### 3.10 `users` (authentication & tenancy)
+
+One row per account owner. Login is by **email + password**; `username` is optional.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | PK | |
+| email | text | **unique**; login identifier & reset-link target |
+| username | text? | **unique** when present; optional alternative handle |
+| name | text? | display name |
+| password_hash | text | **argon2id / bcrypt** hash — NEVER plaintext (§7) |
+| email_verified_at | timestamp? | set when the user confirms their email (SMTP); null = unverified |
+| deactivated_at | timestamp? | soft-disable instead of hard delete, to preserve the append-only ledger (P3) |
+
+### 3.11 `sessions` (DB-backed, revocable)
+
+The client cookie holds a random **opaque** token; the DB stores only its **hash**, so a DB leak cannot resurrect a live session. Sessions are revocable (logout, "sign out everywhere").
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | PK | |
+| user_id | FK | → `users` (cascade on user delete) |
+| token_hash | text | **unique**; SHA-256 of the cookie token — never the raw token |
+| expires_at | timestamp | absolute session expiry |
+| last_used_at | timestamp? | sliding activity (optional) |
+| user_agent | text? | audit / device list |
+| ip | text? | audit |
+
+### 3.12 `password_reset_tokens` (forgot-password via SMTP)
+
+A reset request emails a one-time link. The token is stored **hashed**, is **single-use** (`used_at`), and **short-lived** (`expires_at`). The flow must not reveal whether an email exists (no user enumeration — §7).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | PK | |
+| user_id | FK | → `users` (cascade on user delete) |
+| token_hash | text | **unique**; SHA-256 of the emailed token |
+| expires_at | timestamp | short TTL (e.g. 30–60 min) |
+| used_at | timestamp? | set the moment it is consumed; a used/expired token is rejected |
+
+> **Note on the aggregate roots:** `accounts` (§3.1), `categories` (§3.2), `transactions` (§3.3), and `recurring_rules` (§3.8) each gain a `user_id` FK → `users`. A user cannot be **hard-deleted** while they own ledger data (FK `RESTRICT`); deactivate via `deactivated_at` instead (P3, auditability §7). The `transaction.user_id` doubles as the audit **actor** (§7).
+
 ---
 
 ## 4. Initial Chart of Accounts (Seed)
@@ -391,6 +438,20 @@ Cr  Asset:Bank                   −amount
 
 ## 6. Functional Requirements — MVP (User Stories & Acceptance)
 
+### 6.0 Authentication & Account Ownership
+
+- As a new user, I can **register** with email + password (username optional). The password is stored only as an **argon2id/bcrypt hash**.
+- As a user, I can **log in** and receive a **DB-backed session** (httpOnly, Secure, SameSite cookie holding an opaque token whose hash is stored in `sessions`).
+- As a user, I can **log out** (revoke the current session) and **sign out everywhere** (revoke all my sessions).
+- As a user who forgot my password, I can **request a reset link**; the app emails a one-time link via **SMTP**. Clicking it lets me set a new password. The token is single-use and expires quickly.
+- **Every page and every ledger mutation is behind auth.** An unauthenticated request can neither read nor write any financial data.
+- **Tenant isolation:** every query is scoped to the authenticated `user_id`; a user can never read or mutate another user's accounts, transactions, statements, or plans — including indirectly (e.g. posting to someone else's account, or paying someone else's card).
+- **Security rules (see §7):** passwords hashed (never plaintext/reversible); session & reset tokens stored hashed; reset flow must not reveal whether an email exists (no user enumeration); rate-limit login and reset requests.
+- **Acceptance:**
+  - A request with no/invalid session to any `/accounts`, `/transactions`, `/calendar`, `/dashboard` route or server action is rejected (redirect to login / 401) and touches no data.
+  - Two users each with their own accounts see **only** their own balances and net worth; user A cannot fetch, transfer to, or pay user B's accounts even by guessing IDs.
+  - A password-reset link works exactly once; a second use, or use after expiry, is rejected. Requesting a reset for an unknown email returns the **same** response as for a known one.
+
 ### 6.1 Accounts
 
 - As a user, I can **create / edit / archive** accounts (assets & liabilities) with subtype & opening balance.
@@ -448,7 +509,9 @@ Cr  Asset:Bank                   −amount
 | **Time** | Store UTC; display in `Asia/Jakarta`. Billing-cycle logic uses local calendar dates. |
 | **Integrity** | `Σ postings = 0` enforced at both app and DB layers. Transactions & postings are append-only. |
 | **Security** | This is the user's most sensitive data. Encrypt at rest; PIN/biometric on the client (mobile phase); never store full card numbers (max last 4 digits). |
-| **Auditability** | Every mutation carries a trail (`created_at`, `reversal_of`, actor). |
+| **Authentication** | Email + password. Passwords hashed with **argon2id** (or bcrypt, cost ≥ 12) — never plaintext or reversible encryption. Sessions are **DB-backed & revocable**; the cookie is httpOnly + Secure + SameSite and carries an opaque token whose **hash** (not the raw token) is stored. Reset tokens are **hashed, single-use, short-TTL**. **No user enumeration** — register/login/reset responses must not reveal whether an email exists. **Rate-limit** login and password-reset endpoints. All routes and server actions are auth-gated; all queries are scoped to the authenticated `user_id` (tenant isolation, §6.0). |
+| **Email / SMTP** | Transactional email (password-reset link, later email verification) sent via **SMTP**. SMTP credentials via env/secret, never committed. |
+| **Auditability** | Every mutation carries a trail (`created_at`, `reversal_of`, actor = `transaction.user_id`). |
 | **Backup / Export** | Full user-owned export (later phase) — schema must be export-friendly. |
 | **Performance** | Balances & net worth must compute quickly; consider monthly balance snapshots if data grows large. |
 | **Reliability** | Statement generation and installment posting must be **idempotent** — re-running for the same period must not double-post. |
@@ -494,6 +557,11 @@ Cr  Asset:Bank                   −amount
 | Money | Custom `Money` (`bigint`) | Avoid float-based libraries. |
 | Validation | **Zod** | Validates transaction input + the `Σ = 0` invariant before persistence. |
 | Dates | **date-fns** (or Temporal when stable) | Billing-cycle date math, month-end clamping. |
+| Auth | **Custom email+password + DB sessions** | Hand-rolled to fit the exact flow (email/password + SMTP reset) and keep tenancy explicit. Sessions in Postgres (`sessions`), opaque token in an httpOnly cookie. Auth.js/NextAuth is acceptable but its Credentials + reset flow is more plumbing than a small custom layer here. |
+| Password hashing | **argon2** (`@node-rs/argon2` / `argon2`) | Or bcrypt (cost ≥ 12). Never store plaintext. |
+| Email / SMTP | **nodemailer** | Password-reset links (and later verification). SMTP creds via env/secret. |
+
+> **Prisma 7 note:** the DB connection URL lives in `prisma.config.ts` (`datasource.url`), **not** in `schema.prisma` (which only declares `provider`). Prisma 7 no longer auto-loads `.env`, so `prisma.config.ts` imports `dotenv/config`. The runtime `PrismaClient` uses the **`pg` driver adapter** (`@prisma/adapter-pg`). DB-level objects Prisma can't express in the schema (the `Σ=0` CONSTRAINT TRIGGER and the `due_events` VIEW) live in a hand-written migration (`--create-only`).
 | Testing | **Vitest** | Unit tests for the billing engine & journal logic are **mandatory** — this is the error-prone core. |
 | Charts | (dashboard phase) | Follow the dataviz guidance when building charts. |
 
@@ -511,11 +579,14 @@ src/
     ledger/           # postings, Σ=0 invariant, balances, net worth (§2)
     billing/          # cycles, statements, installments, interest, payments (§5)
     dates/            # Asia/Jakarta cycle math, month-end clamping (§5.5)
+    auth/             # password hashing, sessions, reset tokens, tenant scoping (§6.0)
+    mail/             # SMTP / nodemailer transport & templates (§7)
   db/
-    schema/           # drizzle/prisma schema (§3)
+    schema.prisma     # Prisma schema (§3); connection in prisma.config.ts (Prisma 7)
     seed/             # default chart of accounts (§4)
-    migrations/
+    migrations/       # incl. hand-written Σ=0 trigger + due_events view
   app/
+    (auth)/           # login, register, forgot/reset password (§6.0)
     (dashboard)/      # net worth, outstanding debt, cash flow (§6.5)
     accounts/         # CRUD + billing params (§6.1)
     transactions/     # entry forms, reversal (§6.2)
@@ -558,7 +629,7 @@ The billing/ledger core is the part most likely to be subtly wrong, so it is tes
 ## 13. Open Questions / Decisions to Confirm
 
 1. **ORM:** Drizzle (recommended, §9.1) vs Prisma — confirm before the first migration.
-2. **Auth / multi-user:** single-user local first, or accounts from day one? (Affects `actor` in the audit trail.)
+2. ~~**Auth / multi-user:** single-user local first, or accounts from day one?~~ **RESOLVED (v1.3):** multi-user from day one — email + password, DB-backed sessions, forgot-password via SMTP, all data scoped per `user_id` (§3.10–§3.12, §6.0). Driven by the need to host safely. Open sub-question: enable **email verification** before first use, or defer it? (MVP may defer; `email_verified_at` column reserved.)
 3. **Installment liability recognition:** full liability up front (current §5.3 decision) vs recognizing only each installment as it bills — confirm the §5.3 choice holds for paylater providers you use.
 4. **Interest model fidelity:** flat monthly rate (MVP) vs average-daily-balance — MVP uses flat; confirm acceptable.
 5. **Currency:** IDR-only for MVP (confirmed), multi-currency deferred.
@@ -642,6 +713,7 @@ These scenarios double as **golden tests** (§11). All numbers must reconcile by
 
 ## Changelog
 
+- **v1.3** (2026-07-08) — Added **authentication & multi-user** as an MVP feature (§1.1 item 6, §6.0): email + password login, DB-backed revocable sessions, and forgot-password via SMTP reset link. New tables `users`/`sessions`/`password_reset_tokens` (§3.10–§3.12); the four aggregate roots gain a `user_id` FK and are scoped per user (multi-tenant). Resolved Open Question §13.2 (multi-user from day one). Extended §7 with authentication/SMTP rules and §9 with auth/hashing/email + a Prisma 7 config note.
 - **v1.2** (2026-07-08) — Added optional admin/transfer fee on transfers & e-wallet top-ups as a 3-leg entry (§2.2e2, §6.1a, §15.4) and a new `Admin & Transfer Fees` expense category (§4). Fee is optional; when 0 it collapses to a plain 2-leg transfer.
 - **v1.1** (2026-07-08) — Added multi-account "money storage" management as an explicit MVP feature (§1.1 item 2, §6.1a, §15.4): unlimited bank / e-wallet / cash accounts, transfers, aggregate "Where is my money" view with Total Liquid, per-account history, and balance reconciliation.
 - **v1.0** (2026-07-08) — Initial draft.
