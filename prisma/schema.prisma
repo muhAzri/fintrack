@@ -19,9 +19,15 @@
 // statements + installment_schedules + recurring_rules, created in the same
 // migration above (a VIEW body cannot be generated from the Prisma schema either).
 //
-// NOTE ON multi-user (Open Question §13.2): MVP is single-user. No User model /
-// userId yet. When multi-user lands, add `user User @relation` + userId to the
-// root entities (Account, Category, Transaction, RecurringRule) and scope queries.
+// MULTI-USER (Open Question §13.2 — RESOLVED: multi-user with email+password):
+// The four aggregate roots (Account, Category, Transaction, RecurringRule) carry
+// a `userId` and are scoped per user. Child tables (Posting, CreditAccount,
+// Statement, InstallmentPlan, InstallmentSchedule) inherit tenancy via their
+// parent FK — the app layer MUST ensure every leg/relation of a write belongs to
+// the same user (e.g. a Posting's account and its transaction share one userId).
+// Auth models: User, Session (DB-backed, revocable), PasswordResetToken (SMTP
+// reset link). Passwords are stored as a hash (argon2id/bcrypt) — never plaintext;
+// session & reset tokens are stored HASHED, never the raw value (§7).
 
 generator client {
   provider = "prisma-client-js"
@@ -31,6 +37,74 @@ generator client {
 // not here. The datasource block only declares the provider.
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Authentication & tenancy (§3.10–§3.12, §6.0, §13.2)
+// ---------------------------------------------------------------------------
+
+/// An account owner. Login is by email + password (username optional). All
+/// financial data is scoped to a user via the aggregate-root userId FKs below.
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  username        String?   @unique
+  name            String?
+  /// argon2id / bcrypt hash — NEVER plaintext (§7).
+  passwordHash    String
+  /// Set once the user confirms their email (SMTP). Null = unverified.
+  emailVerifiedAt DateTime?
+  /// Soft-disable instead of hard delete, to preserve the append-only ledger (P3).
+  deactivatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+
+  // Owned data (tenancy roots)
+  accounts       Account[]
+  categories     Category[]
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+
+  @@map("users")
+}
+
+/// DB-backed, revocable session (§6.0). The cookie holds a random opaque token;
+/// only its SHA-256 hash is stored here so a DB leak can't resurrect sessions.
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Forgot-password link sent over SMTP (§6.0). Stores the token HASHED,
+/// single-use (usedAt), short-lived (expiresAt). Do not leak user existence.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +192,9 @@ enum RecurringFrequency {
 /// income/expense/equity accounts that transactions post against (§3.1, §6.1a).
 model Account {
   id             String          @id @default(cuid())
+  /// Owner (tenancy root, §13.2). Hard delete blocked by default (Restrict) —
+  /// deactivate the user instead (P3).
+  userId         String
   name           String
   type           AccountType
   subtype        AccountSubtype?
@@ -136,12 +213,14 @@ model Account {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
+  user          User            @relation(fields: [userId], references: [id])
   postings      Posting[]
   /// One-to-one billing parameters when this is a CREDIT_CARD/PAYLATER (§3.5).
   creditAccount CreditAccount?  @relation("AccountCreditParams")
   /// Reserved (§3.5): credit accounts that use this account as autopay source.
   autopayFor    CreditAccount[] @relation("AutopaySource")
 
+  @@index([userId])
   @@index([type])
   @@index([subtype])
   @@index([isArchived])
@@ -151,6 +230,8 @@ model Account {
 /// Hierarchical classification for expense & income legs (§3.2).
 model Category {
   id       String       @id @default(cuid())
+  /// Owner (tenancy root, §13.2).
+  userId   String
   name     String
   parentId String?
   kind     CategoryKind
@@ -159,10 +240,12 @@ model Category {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
+  user     User       @relation(fields: [userId], references: [id])
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children Category[] @relation("CategoryTree")
   postings Posting[]
 
+  @@index([userId])
   @@index([parentId])
   @@index([kind])
   @@map("categories")
@@ -172,6 +255,8 @@ model Category {
 /// transaction pointing back via reversalOf.
 model Transaction {
   id          String          @id @default(cuid())
+  /// Owner (tenancy root, §13.2). Also the audit "actor" (§7).
+  userId      String
   /// Economic event date (§3.3). Drives balances & accrual cash-flow (§2.3).
   date        DateTime        @db.Date
   /// Posted date for credit instruments; falls back to `date` when null (§5.2).
@@ -185,6 +270,7 @@ model Transaction {
   updatedAt   DateTime        @updatedAt
 
   // --- relations ---
+  user     User      @relation(fields: [userId], references: [id])
   postings Posting[]
 
   /// Set when this transaction reverses another (P3, §3.3).
@@ -203,6 +289,7 @@ model Transaction {
   /// Back-relation: the plan whose original purchase IS this transaction (§3.7).
   originatedPlan InstallmentPlan? @relation("PurchaseTransaction")
 
+  @@index([userId])
   @@index([date])
   @@index([postedDate])
   @@index([type])
@@ -384,6 +471,8 @@ model InstallmentSchedule {
 /// subscriptions, fixed installments (§3.8). MVP may only store template + reminder.
 model RecurringRule {
   id           String             @id @default(cuid())
+  /// Owner (tenancy root, §13.2).
+  userId       String
   name         String
   /// Serialized transaction template (accounts, amounts, category) (§3.8).
   templateJson Json
@@ -395,6 +484,9 @@ model RecurringRule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
   @@index([nextRun])
   @@map("recurring_rules")
 }
