@@ -7,7 +7,7 @@
 // the same cycle returns the existing statement and posts nothing new — the
 // stamping (statementId != null) is exactly what keeps a re-run from
 // re-gathering the same purchases.
-import { cycleForDate, dueDateForStatement, statementDate } from "@/lib/dates";
+import { cycleForDate, dueDateForStatement, jakartaCivilDate, statementDate } from "@/lib/dates";
 import { applyRate, money } from "@/lib/money";
 import { prisma } from "@/lib/db";
 import { computeMinimumDue, computeStatementBalance } from "./statement";
@@ -176,4 +176,55 @@ export async function formStatement(
 
     return { statement: updated, created: true };
   });
+}
+
+/// Catch up statement formation for a user: for every credit account, form each
+/// statement whose cut-off has already passed (§5.2). Idempotent — safe to run
+/// on every calendar visit. Returns how many new statements were formed.
+export async function formDueStatements(
+  userId: string,
+  asOf: Date = jakartaCivilDate(new Date()),
+): Promise<number> {
+  const creditAccounts = await prisma.creditAccount.findMany({
+    where: { account: { userId } },
+    select: { id: true, accountId: true, statementDay: true },
+  });
+
+  let created = 0;
+  for (const ca of creditAccounts) {
+    // Earliest activity on this account: first posting or first scheduled installment.
+    const firstPosting = await prisma.posting.findFirst({
+      where: { accountId: ca.accountId, transaction: { userId } },
+      orderBy: { transaction: { date: "asc" } },
+      select: { transaction: { select: { date: true, postedDate: true } } },
+    });
+    const firstSchedule = await prisma.installmentSchedule.findFirst({
+      where: { plan: { creditAccountId: ca.id } },
+      orderBy: { dueDate: "asc" },
+      select: { dueDate: true },
+    });
+
+    const starts = [
+      firstPosting?.transaction.postedDate ?? firstPosting?.transaction.date,
+      firstSchedule?.dueDate,
+    ].filter((d): d is Date => d instanceof Date);
+    if (starts.length === 0) continue;
+
+    const start = starts.reduce((a, b) => (a.getTime() <= b.getTime() ? a : b));
+    // Begin at the cut-off of the cycle that contains the first activity.
+    const firstCut = cycleForDate(start, ca.statementDay).periodEnd;
+    let year = firstCut.getUTCFullYear();
+    let month = firstCut.getUTCMonth() + 1;
+
+    while (statementDate(year, month, ca.statementDay).getTime() <= asOf.getTime()) {
+      const result = await formStatement(userId, ca.id, { year, month });
+      if (result.created) created++;
+      month++;
+      if (month > 12) {
+        month = 1;
+        year++;
+      }
+    }
+  }
+  return created;
 }
