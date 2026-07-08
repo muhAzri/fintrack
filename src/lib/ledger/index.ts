@@ -197,5 +197,41 @@ export async function getNetWorth(userId: string, asOf?: Date): Promise<bigint> 
   return assets - liabilities;
 }
 
+export interface CashFlow {
+  income: bigint;
+  expense: bigint;
+  net: bigint;
+}
+
+/// Cash flow over a date range (§2.3): Σ INCOME − Σ EXPENSE on an accrual basis
+/// (by transaction date). Positive magnitudes; net = income − expense.
+export async function getCashFlow(userId: string, from: Date, to: Date): Promise<CashFlow> {
+  const accounts = await prisma.account.findMany({
+    where: { userId, type: { in: ["INCOME", "EXPENSE"] } },
+    select: { id: true, type: true },
+  });
+  if (accounts.length === 0) return { income: 0n, expense: 0n, net: 0n };
+
+  const grouped = await prisma.posting.groupBy({
+    by: ["accountId"],
+    _sum: { amount: true },
+    where: {
+      accountId: { in: accounts.map((a) => a.id) },
+      transaction: { userId, date: { gte: from, lte: to } },
+    },
+  });
+  const typeById = new Map(accounts.map((a) => [a.id, a.type]));
+
+  let income = 0n;
+  let expense = 0n;
+  for (const g of grouped) {
+    const natural = g._sum.amount ?? 0n;
+    // Income is credit-normal (negative natural) → magnitude is the negation.
+    if (typeById.get(g.accountId) === "INCOME") income += -natural;
+    else expense += natural;
+  }
+  return { income, expense, net: income - expense };
+}
+
 export * from "./invariant";
 export * from "./balance";
