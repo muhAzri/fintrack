@@ -3,6 +3,8 @@ import { reverseTransactionAction } from "@/app/actions/transactions";
 import { requireUser } from "@/lib/auth/dal";
 import { prisma } from "@/lib/db";
 import { abs, formatIDR, money } from "@/lib/money";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const TYPE_LABEL: Record<string, string> = {
   EXPENSE: "Expense",
@@ -19,7 +21,7 @@ export default async function TransactionsPage() {
   const transactions = await prisma.transaction.findMany({
     where: { userId: user.id },
     include: {
-      postings: { include: { account: { select: { name: true } } } },
+      postings: { select: { amount: true } },
       reversedBy: { select: { id: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -30,20 +32,17 @@ export default async function TransactionsPage() {
     <main className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
-        <Link
-          href="/transactions/new"
-          className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background"
-        >
-          New transaction
-        </Link>
+        <Button asChild size="sm">
+          <Link href="/transactions/new">New transaction</Link>
+        </Button>
       </div>
 
       {transactions.length === 0 ? (
-        <p className="text-sm text-black/50 dark:text-white/50">
+        <p className="text-sm text-muted-foreground">
           No transactions yet. Record your first one.
         </p>
       ) : (
-        <ul className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/15">
+        <div className="divide-y overflow-hidden rounded-lg border">
           {transactions.map((t) => {
             const magnitude = t.postings.reduce(
               (max, p) => (abs(money(p.amount)) > max ? abs(money(p.amount)) : max),
@@ -52,33 +51,33 @@ export default async function TransactionsPage() {
             const isReversal = t.reversalOfId != null;
             const alreadyReversed = t.reversedBy.length > 0;
             return (
-              <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{t.description}</p>
-                  <p className="text-xs text-black/50 dark:text-white/50">
-                    {t.date.toISOString().slice(0, 10)} · {TYPE_LABEL[t.type] ?? t.type}
-                    {isReversal && " · reversal"}
-                    {alreadyReversed && " · reversed"}
-                  </p>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="tabular-nums">{t.date.toISOString().slice(0, 10)}</span>
+                    <Badge variant="secondary" className="font-normal">
+                      {TYPE_LABEL[t.type] ?? t.type}
+                    </Badge>
+                    {isReversal && <span>reversal</span>}
+                    {alreadyReversed && <span>reversed</span>}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="tabular-nums">{formatIDR(money(magnitude))}</span>
                   {!isReversal && !alreadyReversed && (
                     <form action={reverseTransactionAction}>
                       <input type="hidden" name="transactionId" value={t.id} />
-                      <button
-                        type="submit"
-                        className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                      >
+                      <Button type="submit" variant="ghost" size="sm">
                         Reverse
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </div>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
     </main>
   );

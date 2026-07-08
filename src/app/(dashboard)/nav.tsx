@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -20,11 +21,12 @@ export function Nav() {
           <Link
             key={l.href}
             href={l.href}
-            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm transition-colors",
               active
-                ? "bg-foreground text-background"
-                : "text-black/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10"
-            }`}
+                ? "bg-secondary text-secondary-foreground font-medium"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
           >
             {l.label}
           </Link>

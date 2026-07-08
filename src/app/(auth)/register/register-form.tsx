@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerAction, type FormState } from "@/app/actions/auth";
-import { Field, FormError, SubmitButton } from "../form-ui";
+import { Field, FormError, SubmitButton } from "@/components/form";
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(registerAction, {});
@@ -22,7 +22,7 @@ export function RegisterForm() {
       />
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending}>Create account</SubmitButton>
-      <p className="text-sm text-black/60 dark:text-white/60">
+      <p className="text-sm text-muted-foreground">
         Already have an account?{" "}
         <Link href="/login" className="hover:underline">Log in</Link>
       </p>

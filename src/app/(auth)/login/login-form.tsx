@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, type FormState } from "@/app/actions/auth";
-import { Field, FormError, FormMessage, SubmitButton } from "../form-ui";
+import { Field, FormError, FormMessage, SubmitButton } from "@/components/form";
 
 export function LoginForm({ justReset }: { justReset?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(loginAction, {});
@@ -15,7 +15,7 @@ export function LoginForm({ justReset }: { justReset?: boolean }) {
       <Field label="Password" name="password" type="password" autoComplete="current-password" required />
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending}>Log in</SubmitButton>
-      <div className="flex justify-between text-sm text-black/60 dark:text-white/60">
+      <div className="flex justify-between text-sm text-muted-foreground">
         <Link href="/register" className="hover:underline">Create account</Link>
         <Link href="/forgot-password" className="hover:underline">Forgot password?</Link>
       </div>

@@ -4,6 +4,8 @@ import { getCashFlow, getNetWorth } from "@/lib/ledger";
 import { outstandingLiabilities } from "@/lib/billing";
 import { civilDate, daysInMonth, jakartaCivilDate } from "@/lib/dates";
 import { formatIDR, money } from "@/lib/money";
+import { StatCard } from "@/components/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -23,25 +25,25 @@ export default async function DashboardPage() {
 
   const totalAssets = storage.accounts.reduce((sum, a) => sum + a.balance, 0n);
   const totalLiabilities = outstanding.total;
+  const total = totalAssets + totalLiabilities;
+  const assetPct = total > 0n ? Number((totalAssets * 100n) / total) : 100;
 
   return (
     <main className="space-y-8">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <Tile label="Net worth" value={formatIDR(money(netWorth))} />
-        <Tile label="Total liquid" value={formatIDR(money(storage.totalLiquid))} />
-        <Tile label="Outstanding debt" value={formatIDR(money(outstanding.total))} />
+        <StatCard label="Net worth" value={formatIDR(money(netWorth))} />
+        <StatCard label="Total liquid" value={formatIDR(money(storage.totalLiquid))} />
+        <StatCard label="Outstanding debt" value={formatIDR(money(outstanding.total))} />
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-black/60 dark:text-white/60">
-          This month&apos;s cash flow
-        </h2>
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">This month&apos;s cash flow</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Tile label="Income" value={formatIDR(money(cashFlow.income))} />
-          <Tile label="Expense" value={formatIDR(money(cashFlow.expense))} />
-          <Tile
+          <StatCard label="Income" value={formatIDR(money(cashFlow.income))} />
+          <StatCard label="Expense" value={formatIDR(money(cashFlow.expense))} />
+          <StatCard
             label="Net"
             value={formatIDR(money(cashFlow.net))}
             accent={cashFlow.net >= 0n ? "positive" : "negative"}
@@ -49,54 +51,31 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-black/60 dark:text-white/60">
-          Assets vs liabilities
-        </h2>
-        <CompositionBar assets={totalAssets} liabilities={totalLiabilities} />
-        <div className="mt-2 flex justify-between text-sm">
-          <span className="text-black/60 dark:text-white/60">
-            Assets <span className="font-medium tabular-nums text-black dark:text-white">{formatIDR(money(totalAssets))}</span>
-          </span>
-          <span className="text-black/60 dark:text-white/60">
-            Liabilities <span className="font-medium tabular-nums text-black dark:text-white">{formatIDR(money(totalLiabilities))}</span>
-          </span>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Assets vs liabilities</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-green-600/80" style={{ width: `${assetPct}%` }} />
+            <div className="h-full bg-destructive/80" style={{ width: `${100 - assetPct}%` }} />
+          </div>
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>
+              Assets{" "}
+              <span className="font-medium tabular-nums text-foreground">
+                {formatIDR(money(totalAssets))}
+              </span>
+            </span>
+            <span>
+              Liabilities{" "}
+              <span className="font-medium tabular-nums text-foreground">
+                {formatIDR(money(totalLiabilities))}
+              </span>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </main>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "positive" | "negative";
-}) {
-  const accentClass =
-    accent === "positive"
-      ? "text-green-700 dark:text-green-400"
-      : accent === "negative"
-        ? "text-red-600 dark:text-red-400"
-        : "";
-  return (
-    <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">{label}</p>
-      <p className={`mt-1 text-lg font-semibold tabular-nums ${accentClass}`}>{value}</p>
-    </div>
-  );
-}
-
-function CompositionBar({ assets, liabilities }: { assets: bigint; liabilities: bigint }) {
-  const total = assets + liabilities;
-  const assetPct = total > 0n ? Number((assets * 100n) / total) : 0;
-  return (
-    <div className="flex h-3 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-      <div className="h-full bg-green-600/80" style={{ width: `${assetPct}%` }} />
-      <div className="h-full bg-red-500/80" style={{ width: `${100 - assetPct}%` }} />
-    </div>
   );
 }

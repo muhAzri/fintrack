@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import Link from "next/link";
 import { createAccountAction, type AccountFormState } from "@/app/actions/accounts";
-import { Field, FormError, Select, SubmitButton } from "@/components/form";
+import { Field, FormError, FormSelect, SubmitButton } from "@/components/form";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const SUBTYPES: Record<"ASSET" | "LIABILITY", { value: string; label: string }[]> = {
   ASSET: [
@@ -38,31 +39,27 @@ export function NewAccountForm() {
       <Field label="Name" name="name" placeholder="e.g. Bank BCA" required />
 
       <div className="grid grid-cols-2 gap-3">
-        <Select
+        <FormSelect
           label="Type"
           name="type"
           value={type}
-          onChange={(e) => {
-            const t = e.target.value as "ASSET" | "LIABILITY";
+          onValueChange={(v) => {
+            const t = v as "ASSET" | "LIABILITY";
             setType(t);
             setSubtype(SUBTYPES[t][0].value);
           }}
-        >
-          <option value="ASSET">Asset</option>
-          <option value="LIABILITY">Liability</option>
-        </Select>
-        <Select
+          options={[
+            { value: "ASSET", label: "Asset" },
+            { value: "LIABILITY", label: "Liability" },
+          ]}
+        />
+        <FormSelect
           label="Subtype"
           name="subtype"
           value={subtype}
-          onChange={(e) => setSubtype(e.target.value)}
-        >
-          {SUBTYPES[type].map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
+          onValueChange={setSubtype}
+          options={SUBTYPES[type]}
+        />
       </div>
 
       <Field
@@ -75,22 +72,23 @@ export function NewAccountForm() {
       <Field label="Group (optional)" name="group" placeholder="e.g. Daily, Savings" />
 
       {isCredit && (
-        <fieldset className="space-y-4 rounded-md border border-black/10 p-4 dark:border-white/15">
+        <fieldset className="space-y-4 rounded-lg border p-4">
           <legend className="px-1 text-sm font-medium">Billing parameters</legend>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Statement day (1–31)" name="statementDay" inputMode="numeric" required />
             <Field label="Last 4 digits" name="last4" inputMode="numeric" maxLength={4} />
           </div>
 
-          <Select
+          <FormSelect
             label="Due date"
             name="dueMode"
             value={dueMode}
-            onChange={(e) => setDueMode(e.target.value as "day" | "offset")}
-          >
-            <option value="day">Fixed day of month</option>
-            <option value="offset">Days after statement</option>
-          </Select>
+            onValueChange={(v) => setDueMode(v as "day" | "offset")}
+            options={[
+              { value: "day", label: "Fixed day of month" },
+              { value: "offset", label: "Days after statement" },
+            ]}
+          />
           {dueMode === "day" ? (
             <Field label="Due day (1–31)" name="dueDay" inputMode="numeric" />
           ) : (
@@ -114,12 +112,12 @@ export function NewAccountForm() {
       )}
 
       <FormError>{state.error}</FormError>
-      <SubmitButton pending={pending}>Create account</SubmitButton>
-      <p className="text-sm text-black/60 dark:text-white/60">
-        <Link href="/accounts" className="hover:underline">
-          Cancel
-        </Link>
-      </p>
+      <div className="flex items-center gap-3">
+        <SubmitButton pending={pending}>Create account</SubmitButton>
+        <Button type="button" variant="ghost" asChild>
+          <Link href="/accounts">Cancel</Link>
+        </Button>
+      </div>
     </form>
   );
 }

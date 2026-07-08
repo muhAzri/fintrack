@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { resetAction, type FormState } from "@/app/actions/auth";
-import { Field, FormError, SubmitButton } from "../form-ui";
+import { Field, FormError, SubmitButton } from "@/components/form";
 
 export function ResetForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(resetAction, {});
@@ -24,7 +24,7 @@ export function ResetForm({ token }: { token: string }) {
       />
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending}>Update password</SubmitButton>
-      <p className="text-sm text-black/60 dark:text-white/60">
+      <p className="text-sm text-muted-foreground">
         <Link href="/forgot-password" className="hover:underline">Request a new link</Link>
       </p>
     </form>

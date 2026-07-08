@@ -2,6 +2,10 @@ import { closeDueStatementsAction } from "@/app/actions/billing";
 import { requireUser } from "@/lib/auth/dal";
 import { dueTimeline, lockedVsRunning } from "@/lib/billing";
 import { formatIDR, money } from "@/lib/money";
+import { StatCard } from "@/components/stat-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const TYPE_LABEL: Record<string, string> = {
   STATEMENT_DUE: "Statement due",
@@ -20,80 +24,65 @@ export default async function CalendarPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
         <form action={closeDueStatementsAction}>
-          <button
-            type="submit"
-            className="rounded-md border border-black/15 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
+          <Button type="submit" variant="outline" size="sm">
             Refresh statements
-          </button>
+          </Button>
         </form>
       </div>
 
       {/* Cash-coverage per horizon (§5.6, §6.4) */}
       <section className="grid gap-4 sm:grid-cols-3">
         {timeline.horizons.map((h) => (
-          <div key={h.horizonDays} className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-            <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">
-              Due within {h.horizonDays} days
-            </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">{formatIDR(money(h.dueTotal))}</p>
-            <p
-              className={`mt-1 text-sm font-medium ${
-                h.isCoveredByCash
-                  ? "text-green-700 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }`}
+          <StatCard
+            key={h.horizonDays}
+            label={`Due within ${h.horizonDays} days`}
+            value={formatIDR(money(h.dueTotal))}
+          >
+            <Badge
+              variant={h.isCoveredByCash ? "secondary" : "destructive"}
+              className="mt-2 font-normal"
             >
               {h.isCoveredByCash ? "Covered by cash" : "Not covered"}
-            </p>
-          </div>
+            </Badge>
+          </StatCard>
         ))}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-          <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">
-            Locked bill (cut, awaiting payment)
-          </p>
-          <p className="mt-1 text-lg font-semibold tabular-nums">
-            {formatIDR(money(split.lockedBill))}
-          </p>
-        </div>
-        <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-          <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">
-            Running spend (open cycle)
-          </p>
-          <p className="mt-1 text-lg font-semibold tabular-nums">
-            {formatIDR(money(split.runningSpend))}
-          </p>
-        </div>
+        <StatCard label="Locked bill (awaiting payment)" value={formatIDR(money(split.lockedBill))} />
+        <StatCard label="Running spend (open cycle)" value={formatIDR(money(split.runningSpend))} />
       </section>
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-black/60 dark:text-white/60">
-            Upcoming (next 30 days)
-          </h2>
-          <span className="text-sm text-black/50 dark:text-white/50">
+          <h2 className="text-sm font-medium text-muted-foreground">Upcoming (next 30 days)</h2>
+          <span className="text-sm text-muted-foreground">
             Total liquid: {formatIDR(money(timeline.totalLiquid))}
           </span>
         </div>
         {timeline.events.length === 0 ? (
-          <p className="text-sm text-black/50 dark:text-white/50">Nothing due in the next 30 days.</p>
+          <p className="text-sm text-muted-foreground">Nothing due in the next 30 days.</p>
         ) : (
-          <ul className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/15">
-            {timeline.events.map((e, i) => (
-              <li key={`${e.accountId}-${i}`} className="flex items-center justify-between px-4 py-3">
-                <span>
-                  <span className="font-medium">{TYPE_LABEL[e.type] ?? e.type}</span>
-                  <span className="ml-2 text-xs text-black/50 dark:text-white/50">
-                    {e.date.toISOString().slice(0, 10)}
+          <Card className="py-0">
+            <CardContent className="divide-y px-0">
+              {timeline.events.map((e, i) => (
+                <div
+                  key={`${e.accountId}-${i}`}
+                  className="flex items-center justify-between px-4 py-3"
+                >
+                  <span className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-normal">
+                      {TYPE_LABEL[e.type] ?? e.type}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {e.date.toISOString().slice(0, 10)}
+                    </span>
                   </span>
-                </span>
-                <span className="tabular-nums">{formatIDR(money(e.amount))}</span>
-              </li>
-            ))}
-          </ul>
+                  <span className="tabular-nums">{formatIDR(money(e.amount))}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         )}
       </section>
     </main>

@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { recordTransactionAction, type TxFormState } from "@/app/actions/transactions";
-import { Field, FormError, Select, SubmitButton } from "@/components/form";
+import { Field, FormError, FormSelect, type SelectOption, SubmitButton } from "@/components/form";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 interface Option {
   id: string;
@@ -32,17 +34,9 @@ const MODES: { value: Mode; label: string }[] = [
   { value: "installment", label: "Installment" },
 ];
 
-function Options({ items }: { items: Option[] }) {
-  return (
-    <>
-      {items.map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.name}
-        </option>
-      ))}
-    </>
-  );
-}
+const toOptions = (items: Option[]): SelectOption[] =>
+  items.map((o) => ({ value: o.id, label: o.name }));
+const first = (opts: SelectOption[]): string | undefined => opts[0]?.value;
 
 export function NewTransactionForm({ data }: { data: TransactionFormData }) {
   const [state, action, pending] = useActionState<TxFormState, FormData>(
@@ -52,74 +46,72 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
   const [mode, setMode] = useState<Mode>("expense");
   const [withFee, setWithFee] = useState(false);
 
-  const payFrom: Option[] = [
-    ...data.assets,
-    ...data.creditCards.map((c) => ({ id: c.accountId, name: `${c.name} (card)` })),
+  const assetOpts = toOptions(data.assets);
+  const expenseOpts = toOptions(data.expenseAccounts);
+  const incomeOpts = toOptions(data.incomeAccounts);
+  const cardOpts: SelectOption[] = data.creditCards.map((c) => ({
+    value: c.creditAccountId,
+    label: c.name,
+  }));
+  const payFromOpts: SelectOption[] = [
+    ...assetOpts,
+    ...data.creditCards.map((c) => ({ value: c.accountId, label: `${c.name} (card)` })),
   ];
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="mode" value={mode} />
 
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {MODES.map((m) => (
-          <button
+          <Button
             key={m.value}
             type="button"
+            size="sm"
+            variant={mode === m.value ? "default" : "outline"}
             onClick={() => setMode(m.value)}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              mode === m.value
-                ? "bg-foreground text-background"
-                : "border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-            }`}
           >
             {m.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {mode === "expense" && (
         <>
-          <Select label="Category" name="expenseAccountId" required>
-            <Options items={data.expenseAccounts} />
-          </Select>
-          <Select label="Paid from" name="sourceAccountId" required>
-            <Options items={payFrom} />
-          </Select>
+          <FormSelect label="Category" name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
+          <FormSelect label="Paid from" name="sourceAccountId" options={payFromOpts} defaultValue={first(payFromOpts)} required />
         </>
       )}
 
       {mode === "income" && (
         <>
-          <Select label="Source" name="incomeAccountId" required>
-            <Options items={data.incomeAccounts} />
-          </Select>
-          <Select label="Received into" name="assetAccountId" required>
-            <Options items={data.assets} />
-          </Select>
+          <FormSelect label="Source" name="incomeAccountId" options={incomeOpts} defaultValue={first(incomeOpts)} required />
+          <FormSelect label="Received into" name="assetAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
         </>
       )}
 
       {mode === "transfer" && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="From" name="fromAccountId" required>
-              <Options items={data.assets} />
-            </Select>
-            <Select label="To" name="toAccountId" required>
-              <Options items={data.assets} />
-            </Select>
+            <FormSelect label="From" name="fromAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
+            <FormSelect label="To" name="toAccountId" options={assetOpts} defaultValue={assetOpts[1]?.value ?? first(assetOpts)} required />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={withFee} onChange={(e) => setWithFee(e.target.checked)} />
-            Add an admin/top-up fee
-          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="withFee"
+              type="checkbox"
+              checked={withFee}
+              onChange={(e) => setWithFee(e.target.checked)}
+              className="size-4 rounded border-input"
+            />
+            <Label htmlFor="withFee" className="font-normal">
+              Add an admin/top-up fee
+            </Label>
+          </div>
           {withFee && (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Fee" name="fee" inputMode="numeric" placeholder="1000" />
-              <Select label="Fee category" name="feeAccountId">
-                <Options items={data.expenseAccounts} />
-              </Select>
+              <FormSelect label="Fee category" name="feeAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} />
             </div>
           )}
         </>
@@ -127,31 +119,15 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
 
       {mode === "payment" && (
         <>
-          <Select label="Card / paylater" name="creditAccountId" required>
-            {data.creditCards.map((c) => (
-              <option key={c.creditAccountId} value={c.creditAccountId}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Select label="Pay from" name="sourceAccountId" required>
-            <Options items={data.assets} />
-          </Select>
+          <FormSelect label="Card / paylater" name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
+          <FormSelect label="Pay from" name="sourceAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
         </>
       )}
 
       {mode === "installment" && (
         <>
-          <Select label="Card / paylater" name="creditAccountId" required>
-            {data.creditCards.map((c) => (
-              <option key={c.creditAccountId} value={c.creditAccountId}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Select label="Category" name="expenseAccountId" required>
-            <Options items={data.expenseAccounts} />
-          </Select>
+          <FormSelect label="Card / paylater" name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
+          <FormSelect label="Category" name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Tenor (months)" name="tenorMonths" inputMode="numeric" placeholder="3" required />
             <Field label="Monthly interest" name="interestRateMonthly" placeholder="0" hint="0 for 0%" />
@@ -167,17 +143,15 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
         required
       />
       <Field label="Date" name="date" type="date" />
-      {mode !== "payment" && (
-        <Field label="Description" name="description" placeholder="Optional" />
-      )}
+      {mode !== "payment" && <Field label="Description" name="description" placeholder="Optional" />}
 
       <FormError>{state.error}</FormError>
-      <SubmitButton pending={pending}>Record transaction</SubmitButton>
-      <p className="text-sm text-black/60 dark:text-white/60">
-        <Link href="/transactions" className="hover:underline">
-          Cancel
-        </Link>
-      </p>
+      <div className="flex items-center gap-3">
+        <SubmitButton pending={pending}>Record transaction</SubmitButton>
+        <Button type="button" variant="ghost" asChild>
+          <Link href="/transactions">Cancel</Link>
+        </Button>
+      </div>
     </form>
   );
 }
