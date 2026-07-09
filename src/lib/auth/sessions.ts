@@ -9,6 +9,12 @@ import { generateToken, hashToken } from "./tokens";
 
 export const SESSION_TTL_DAYS = 30;
 
+// `lastUsedAt` is a coarse "sliding activity" marker, not an audit log — it does
+// not need second-accuracy. Writing it on *every* navigation put a serialized DB
+// write on the hot path of each page load; instead we refresh it at most once per
+// window, so the vast majority of navigations do zero session writes.
+const LAST_USED_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+
 export interface SessionMeta {
   userAgent?: string | null;
   ip?: string | null;
@@ -52,9 +58,15 @@ export async function validateSessionToken(
   }
   if (session.user.deactivatedAt) return null;
 
-  await prisma.session
-    .update({ where: { id: session.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => undefined);
+  // Throttle the sliding-activity write off the per-request critical path: only
+  // touch the row if it has never been marked, or the marker is older than the
+  // refresh window. Best-effort — a failure here must not fail the request.
+  const lastUsed = session.lastUsedAt?.getTime() ?? 0;
+  if (Date.now() - lastUsed > LAST_USED_REFRESH_MS) {
+    await prisma.session
+      .update({ where: { id: session.id }, data: { lastUsedAt: new Date() } })
+      .catch(() => undefined);
+  }
 
   return { session, user: session.user };
 }
