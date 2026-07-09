@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { money, sum } from "@/lib/money";
 import { toISODate } from "@/lib/dates";
 import {
+  buildInstallmentSchedule,
   generateInstallmentSchedule,
   installmentPlanTotal,
+  interestFromMonthly,
 } from "@/lib/billing/installments";
 
 describe("golden §15.2 — paylater 3× installment (0%)", () => {
@@ -82,5 +84,41 @@ describe("installment schedule — remainder & interest (§5.3, §8.3)", () => {
       "2027-01-05",
       "2027-02-05",
     ]);
+  });
+});
+
+describe("importing an existing plan — interestFromMonthly (§13.4)", () => {
+  it("recovers zero interest from a fixed installment that is exactly principal/tenor", () => {
+    // 21,000,000 owed over 14 months, paying 1,500,000/month → 0% (no interest).
+    expect(interestFromMonthly(money(21_000_000), money(1_500_000), 14)).toBe(0n);
+  });
+
+  it("recovers the flat interest baked into a fixed installment", () => {
+    // 10,000,000 over 12 months, paying 1,000,000/month.
+    // principal slice = floor(10,000,000 / 12) = 833,333 → interest = 166,667.
+    expect(interestFromMonthly(money(10_000_000), money(1_000_000), 12)).toBe(166_667n);
+  });
+
+  it("rejects an installment below the principal slice", () => {
+    expect(() => interestFromMonthly(money(1_200_000), money(300_000), 3)).toThrow(RangeError);
+  });
+
+  it("feeds buildInstallmentSchedule so the monthly bill matches the fixed installment", () => {
+    const principal = money(10_000_000);
+    const interestPerMonth = interestFromMonthly(principal, money(1_000_000), 12);
+    const plan = buildInstallmentSchedule({
+      principal,
+      tenorMonths: 12,
+      interestPerMonth,
+      startYear: 2026,
+      startMonth: 8,
+      statementDay: 25,
+      due: { dueOffsetDays: 5 },
+    });
+    expect(plan.monthlyAmount).toBe(1_000_000n); // 833,333 + 166,667
+    expect(plan.schedule.every((r) => r.interestComponent === 166_667n)).toBe(true);
+    // Σ principal is preserved exactly; the remainder lands on the last month.
+    expect(sum(plan.schedule.map((r) => r.principalComponent))).toBe(10_000_000n);
+    expect(plan.schedule[11].principalComponent).toBe(833_337n); // 10,000,000 − 833,333×11
   });
 });

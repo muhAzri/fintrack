@@ -8,7 +8,11 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/dal";
 import { postTransaction, reverseTransaction } from "@/lib/ledger";
-import { createInstallmentPurchase, recordCardPayment } from "@/lib/billing";
+import {
+  createInstallmentPurchase,
+  importExistingInstallmentPlan,
+  recordCardPayment,
+} from "@/lib/billing";
 import { parseIDR } from "@/lib/money";
 
 export interface TxFormState {
@@ -116,6 +120,22 @@ export async function recordTransactionAction(
           interestRateMonthly: str(formData, "interestRateMonthly") || "0",
           date: txDate(formData),
           description: str(formData, "description") || "Installment purchase",
+        });
+        break;
+      }
+      case "existing": {
+        // Import an already-running plan: recognize only the remaining balance
+        // against equity + schedule the remaining installments (§5.3, §13.4).
+        const rate = str(formData, "interestRateMonthly");
+        const monthly = str(formData, "monthlyAmount");
+        await importExistingInstallmentPlan(user.id, {
+          creditAccountId: str(formData, "creditAccountId"),
+          remainingPrincipal: positive(formData, "amount"),
+          remainingTenor: Number(str(formData, "tenorMonths")),
+          monthlyAmount: monthly ? parseIDR(monthly) : null,
+          interestRateMonthly: monthly ? null : rate || "0",
+          date: txDate(formData),
+          description: str(formData, "description") || "Existing installment",
         });
         break;
       }

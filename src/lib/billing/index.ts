@@ -4,6 +4,7 @@
 export * from "./installments";
 export * from "./statement";
 export * from "./purchase";
+export * from "./import";
 export * from "./formation";
 export * from "./payment";
 export * from "./views";

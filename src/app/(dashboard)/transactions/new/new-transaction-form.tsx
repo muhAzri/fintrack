@@ -25,7 +25,7 @@ export interface TransactionFormData {
   creditCards: CreditOption[];
 }
 
-type Mode = "expense" | "income" | "transfer" | "payment" | "installment";
+type Mode = "expense" | "income" | "transfer" | "payment" | "installment" | "existing";
 
 const toOptions = (items: Option[]): SelectOption[] =>
   items.map((o) => ({ value: o.id, label: o.name }));
@@ -40,6 +40,7 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
   const tc = useTranslations("common");
   const [mode, setMode] = useState<Mode>("expense");
   const [withFee, setWithFee] = useState(false);
+  const [knowMonthly, setKnowMonthly] = useState(true);
 
   const MODES: { value: Mode; label: string }[] = [
     { value: "expense", label: t("modeExpense") },
@@ -47,6 +48,7 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
     { value: "transfer", label: t("modeTransfer") },
     { value: "payment", label: t("modePayment") },
     { value: "installment", label: t("modeInstallment") },
+    { value: "existing", label: t("modeExisting") },
   ];
 
   const assetOpts = toOptions(data.assets);
@@ -138,8 +140,38 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
         </>
       )}
 
+      {mode === "existing" && (
+        <>
+          <FormSelect label={t("card")} name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
+          <Field label={t("remainingTenor")} name="tenorMonths" inputMode="numeric" placeholder="14" required />
+          <div className="flex items-center gap-2">
+            <input
+              id="knowMonthly"
+              type="checkbox"
+              checked={knowMonthly}
+              onChange={(e) => setKnowMonthly(e.target.checked)}
+              className="size-4 rounded border-input"
+            />
+            <Label htmlFor="knowMonthly" className="font-normal">
+              {t("knowMonthly")}
+            </Label>
+          </div>
+          {knowMonthly ? (
+            <Field label={t("monthlyAmount")} name="monthlyAmount" inputMode="numeric" placeholder="1500000" hint={t("monthlyAmountHint")} required />
+          ) : (
+            <Field label={t("interest")} name="interestRateMonthly" placeholder="0" hint={t("existingInterestHint")} />
+          )}
+        </>
+      )}
+
       <Field
-        label={mode === "installment" ? t("totalPrincipal") : t("amount")}
+        label={
+          mode === "installment"
+            ? t("totalPrincipal")
+            : mode === "existing"
+              ? t("remainingPrincipal")
+              : t("amount")
+        }
         name="amount"
         inputMode="numeric"
         placeholder="0"

@@ -53,3 +53,25 @@ export async function findInterestExpenseAccount(
   }
   return acc.id;
 }
+
+/// Find the user's "Opening Balance" equity account (seeded by §4), or use an
+/// explicit override. Pre-existing debt imported into the ledger posts its
+/// offsetting leg here — NOT to an expense — because the spend predates the
+/// books (§4 opening balances).
+export async function findOpeningBalanceEquityAccount(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  override?: string,
+): Promise<string> {
+  if (override) return override;
+  const acc = await tx.account.findFirst({
+    where: { userId, type: "EQUITY", name: "Opening Balance" },
+    select: { id: true },
+  });
+  if (!acc) {
+    throw new Error(
+      "no 'Opening Balance' equity account found — seed the chart of accounts or pass openingEquityAccountId",
+    );
+  }
+  return acc.id;
+}
