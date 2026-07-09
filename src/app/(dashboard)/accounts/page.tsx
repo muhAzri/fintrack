@@ -37,14 +37,16 @@ export default async function AccountsPage() {
         <CardContent className="space-y-4">
           <p className="text-3xl font-semibold tabular-nums">{formatIDR(money(storage.totalLiquid))}</p>
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-            {Object.entries(storage.subtotalsBySubtype).map(([subtype, total]) => (
-              <span key={subtype}>
-                {st(subtype)}:{" "}
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatIDR(money(total ?? 0n))}
+            {(Object.entries(storage.subtotalsBySubtype) as [string, bigint][]).map(
+              ([subtype, total]) => (
+                <span key={subtype}>
+                  {st(subtype)}:{" "}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {formatIDR(money(total))}
+                  </span>
                 </span>
-              </span>
-            ))}
+              ),
+            )}
           </div>
         </CardContent>
       </Card>
