@@ -17,6 +17,9 @@ import { parseIDR } from "@/lib/money";
 
 export interface TxFormState {
   error?: string;
+  /// Set when the user chose "save & add another": the write succeeded but we
+  /// intentionally stayed on the form instead of redirecting (fast repeat entry).
+  ok?: boolean;
 }
 
 function positive(formData: FormData, key: string): bigint {
@@ -152,6 +155,11 @@ export async function recordTransactionAction(
   revalidatePath("/transactions");
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
+
+  // "Save & add another" (§ fast repeat entry): stay on the form so the user can
+  // immediately record the next one, keeping their account/card selection.
+  if (str(formData, "stay") === "1") return { ok: true };
+
   redirect("/transactions");
 }
 

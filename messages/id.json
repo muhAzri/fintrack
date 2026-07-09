@@ -146,6 +146,8 @@
     "description": "Deskripsi",
     "descriptionPlaceholder": "Opsional",
     "submit": "Catat transaksi",
+    "saveAndAnother": "Simpan & tambah lagi",
+    "saved": "Tersimpan ✓ Siap untuk berikutnya.",
     "cardSuffix": "(kartu)",
     "errPositive": "Jumlah harus lebih dari 0.",
     "errGeneric": "Tidak dapat mencatat transaksi.",

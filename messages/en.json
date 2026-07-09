@@ -146,6 +146,8 @@
     "description": "Description",
     "descriptionPlaceholder": "Optional",
     "submit": "Record transaction",
+    "saveAndAnother": "Save & add another",
+    "saved": "Saved ✓ Ready for the next one.",
     "cardSuffix": "(card)",
     "errPositive": "Amount must be greater than 0.",
     "errGeneric": "Could not record the transaction.",
