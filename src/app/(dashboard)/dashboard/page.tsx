@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/dal";
 import { moneyStorageView } from "@/lib/accounts";
 import { getCashFlow, getNetWorth } from "@/lib/ledger";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const t = await getTranslations("dashboard");
 
   const now = jakartaCivilDate(new Date());
   const year = now.getUTCFullYear();
@@ -30,21 +32,21 @@ export default async function DashboardPage() {
 
   return (
     <main className="space-y-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Net worth" value={formatIDR(money(netWorth))} />
-        <StatCard label="Total liquid" value={formatIDR(money(storage.totalLiquid))} />
-        <StatCard label="Outstanding debt" value={formatIDR(money(outstanding.total))} />
+        <StatCard label={t("netWorth")} value={formatIDR(money(netWorth))} />
+        <StatCard label={t("totalLiquid")} value={formatIDR(money(storage.totalLiquid))} />
+        <StatCard label={t("outstandingDebt")} value={formatIDR(money(outstanding.total))} />
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">This month&apos;s cash flow</h2>
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">{t("cashFlowTitle")}</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard label="Income" value={formatIDR(money(cashFlow.income))} />
-          <StatCard label="Expense" value={formatIDR(money(cashFlow.expense))} />
+          <StatCard label={t("income")} value={formatIDR(money(cashFlow.income))} />
+          <StatCard label={t("expense")} value={formatIDR(money(cashFlow.expense))} />
           <StatCard
-            label="Net"
+            label={t("net")}
             value={formatIDR(money(cashFlow.net))}
             accent={cashFlow.net >= 0n ? "positive" : "negative"}
           />
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Assets vs liabilities</CardTitle>
+          <CardTitle className="text-base">{t("assetsVsLiabilities")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
@@ -62,13 +64,13 @@ export default async function DashboardPage() {
           </div>
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>
-              Assets{" "}
+              {t("assets")}{" "}
               <span className="font-medium tabular-nums text-foreground">
                 {formatIDR(money(totalAssets))}
               </span>
             </span>
             <span>
-              Liabilities{" "}
+              {t("liabilities")}{" "}
               <span className="font-medium tabular-nums text-foreground">
                 {formatIDR(money(totalLiabilities))}
               </span>

@@ -6,6 +6,7 @@
 // duplicate registration returns a non-committal message.
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import {
   authenticate,
@@ -37,13 +38,14 @@ const registerSchema = z.object({
 });
 
 export async function registerAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("auth");
   const parsed = registerSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
     name: formData.get("name") || undefined,
   });
   if (!parsed.success) {
-    return { error: "Enter a valid email and a password of at least 8 characters." };
+    return { error: t("errRegisterInvalid") };
   }
 
   try {
@@ -53,9 +55,9 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   } catch (err) {
     if (err instanceof EmailAlreadyInUse || err instanceof UsernameAlreadyInUse) {
       // Do not confirm the email exists (§7). Point them at logging in instead.
-      return { error: "We couldn't complete registration. Try logging in instead." };
+      return { error: t("errRegisterFailed") };
     }
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("errGeneric") };
   }
   redirect("/dashboard");
 }
@@ -63,14 +65,15 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
 const loginSchema = z.object({ email: z.email(), password: z.string().min(1) });
 
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("auth");
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: "Invalid email or password." };
+  if (!parsed.success) return { error: t("errInvalidCredentials") };
 
   const user = await authenticate(parsed.data.email, parsed.data.password);
-  if (!user) return { error: "Invalid email or password." };
+  if (!user) return { error: t("errInvalidCredentials") };
 
   await startSession(user.id, await sessionMeta());
   redirect("/dashboard");
@@ -84,8 +87,9 @@ export async function logoutAction(): Promise<void> {
 const emailSchema = z.object({ email: z.email() });
 
 export async function requestResetAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("auth");
   // Identical response whether or not the email exists (§7 no enumeration).
-  const generic = { message: "If an account exists for that email, we've sent a reset link." };
+  const generic = { message: t("resetSent") };
   const parsed = emailSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) return generic;
 
@@ -109,14 +113,15 @@ export async function requestResetAction(_prev: FormState, formData: FormData): 
 const resetSchema = z.object({ token: z.string().min(1), password: z.string().min(8) });
 
 export async function resetAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("auth");
   const parsed = resetSchema.safeParse({
     token: formData.get("token"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: "Enter a new password of at least 8 characters." };
+  if (!parsed.success) return { error: t("errPasswordShort") };
 
   const ok = await resetPasswordWithToken(parsed.data.token, parsed.data.password);
-  if (!ok) return { error: "This reset link is invalid or has expired." };
+  if (!ok) return { error: t("errResetInvalid") };
 
   redirect("/login?reset=1");
 }

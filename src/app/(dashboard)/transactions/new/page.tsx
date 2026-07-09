@@ -1,9 +1,11 @@
+import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/dal";
 import { listAccounts } from "@/lib/accounts";
 import { NewTransactionForm, type TransactionFormData } from "./new-transaction-form";
 
 export default async function NewTransactionPage() {
   const user = await requireUser();
+  const t = await getTranslations("transactionForm");
   const accounts = await listAccounts(user.id);
 
   const data: TransactionFormData = {
@@ -21,7 +23,7 @@ export default async function NewTransactionPage() {
 
   return (
     <main className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">New transaction</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">{t("title")}</h1>
       <NewTransactionForm data={data} />
     </main>
   );

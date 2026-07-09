@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { closeDueStatementsAction } from "@/app/actions/billing";
 import { requireUser } from "@/lib/auth/dal";
 import { dueTimeline, lockedVsRunning } from "@/lib/billing";
@@ -7,13 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-const TYPE_LABEL: Record<string, string> = {
-  STATEMENT_DUE: "Statement due",
-  INSTALLMENT_DUE: "Installment due",
-};
-
 export default async function CalendarPage() {
   const user = await requireUser();
+  const t = await getTranslations("calendar");
+  const dt = await getTranslations("dueType");
   const [timeline, split] = await Promise.all([
     dueTimeline(user.id, { horizons: [7, 14, 30] }),
     lockedVsRunning(user.id),
@@ -22,10 +20,10 @@ export default async function CalendarPage() {
   return (
     <main className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <form action={closeDueStatementsAction}>
           <Button type="submit" variant="outline" size="sm">
-            Refresh statements
+            {t("refresh")}
           </Button>
         </form>
       </div>
@@ -35,33 +33,33 @@ export default async function CalendarPage() {
         {timeline.horizons.map((h) => (
           <StatCard
             key={h.horizonDays}
-            label={`Due within ${h.horizonDays} days`}
+            label={t("dueWithin", { days: h.horizonDays })}
             value={formatIDR(money(h.dueTotal))}
           >
             <Badge
               variant={h.isCoveredByCash ? "secondary" : "destructive"}
               className="mt-2 font-normal"
             >
-              {h.isCoveredByCash ? "Covered by cash" : "Not covered"}
+              {h.isCoveredByCash ? t("covered") : t("notCovered")}
             </Badge>
           </StatCard>
         ))}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Locked bill (awaiting payment)" value={formatIDR(money(split.lockedBill))} />
-        <StatCard label="Running spend (open cycle)" value={formatIDR(money(split.runningSpend))} />
+        <StatCard label={t("lockedBill")} value={formatIDR(money(split.lockedBill))} />
+        <StatCard label={t("runningSpend")} value={formatIDR(money(split.runningSpend))} />
       </section>
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted-foreground">Upcoming (next 30 days)</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">{t("upcoming")}</h2>
           <span className="text-sm text-muted-foreground">
-            Total liquid: {formatIDR(money(timeline.totalLiquid))}
+            {t("totalLiquid", { amount: formatIDR(money(timeline.totalLiquid)) })}
           </span>
         </div>
         {timeline.events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing due in the next 30 days.</p>
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <Card className="py-0">
             <CardContent className="divide-y px-0">
@@ -72,7 +70,7 @@ export default async function CalendarPage() {
                 >
                   <span className="flex items-center gap-2">
                     <Badge variant="outline" className="font-normal">
-                      {TYPE_LABEL[e.type] ?? e.type}
+                      {dt(e.type)}
                     </Badge>
                     <span className="text-sm text-muted-foreground tabular-nums">
                       {e.date.toISOString().slice(0, 10)}

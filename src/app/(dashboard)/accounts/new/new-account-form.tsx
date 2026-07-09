@@ -1,27 +1,15 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { createAccountAction, type AccountFormState } from "@/app/actions/accounts";
 import { Field, FormError, FormSelect, SubmitButton } from "@/components/form";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
-const SUBTYPES: Record<"ASSET" | "LIABILITY", { value: string; label: string }[]> = {
-  ASSET: [
-    { value: "CASH", label: "Cash" },
-    { value: "BANK", label: "Bank" },
-    { value: "EWALLET", label: "E-wallet" },
-    { value: "RECEIVABLE", label: "Receivable" },
-    { value: "INVESTMENT", label: "Investment" },
-    { value: "OTHER", label: "Other" },
-  ],
-  LIABILITY: [
-    { value: "CREDIT_CARD", label: "Credit card" },
-    { value: "PAYLATER", label: "Paylater" },
-    { value: "LOAN", label: "Loan" },
-    { value: "PERSONAL_DEBT", label: "Personal debt" },
-    { value: "OTHER", label: "Other" },
-  ],
+const SUBTYPE_VALUES: Record<"ASSET" | "LIABILITY", string[]> = {
+  ASSET: ["CASH", "BANK", "EWALLET", "RECEIVABLE", "INVESTMENT", "OTHER"],
+  LIABILITY: ["CREDIT_CARD", "PAYLATER", "LOAN", "PERSONAL_DEBT", "OTHER"],
 };
 
 export function NewAccountForm() {
@@ -29,93 +17,98 @@ export function NewAccountForm() {
     createAccountAction,
     {},
   );
+  const t = useTranslations("accountForm");
+  const st = useTranslations("accountSubtype");
+  const tc = useTranslations("common");
   const [type, setType] = useState<"ASSET" | "LIABILITY">("ASSET");
   const [subtype, setSubtype] = useState("CASH");
   const [dueMode, setDueMode] = useState<"day" | "offset">("day");
   const isCredit = subtype === "CREDIT_CARD" || subtype === "PAYLATER";
 
+  const subtypeOptions = SUBTYPE_VALUES[type].map((v) => ({ value: v, label: st(v) }));
+
   return (
     <form action={action} className="space-y-4">
-      <Field label="Name" name="name" placeholder="e.g. Bank BCA" required />
+      <Field label={t("name")} name="name" placeholder={t("namePlaceholder")} required />
 
       <div className="grid grid-cols-2 gap-3">
         <FormSelect
-          label="Type"
+          label={t("type")}
           name="type"
           value={type}
           onValueChange={(v) => {
-            const t = v as "ASSET" | "LIABILITY";
-            setType(t);
-            setSubtype(SUBTYPES[t][0].value);
+            const nt = v as "ASSET" | "LIABILITY";
+            setType(nt);
+            setSubtype(SUBTYPE_VALUES[nt][0]);
           }}
           options={[
-            { value: "ASSET", label: "Asset" },
-            { value: "LIABILITY", label: "Liability" },
+            { value: "ASSET", label: t("typeAsset") },
+            { value: "LIABILITY", label: t("typeLiability") },
           ]}
         />
         <FormSelect
-          label="Subtype"
+          label={t("subtype")}
           name="subtype"
           value={subtype}
           onValueChange={setSubtype}
-          options={SUBTYPES[type]}
+          options={subtypeOptions}
         />
       </div>
 
       <Field
-        label="Opening balance"
+        label={t("openingBalance")}
         name="openingBalance"
         inputMode="numeric"
         placeholder="0"
-        hint="Amount you have now (assets) or owe now (liabilities). Whole rupiah."
+        hint={t("openingHint")}
       />
-      <Field label="Group (optional)" name="group" placeholder="e.g. Daily, Savings" />
+      <Field label={t("group")} name="group" placeholder={t("groupPlaceholder")} />
 
       {isCredit && (
         <fieldset className="space-y-4 rounded-lg border p-4">
-          <legend className="px-1 text-sm font-medium">Billing parameters</legend>
+          <legend className="px-1 text-sm font-medium">{t("billing")}</legend>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Statement day (1–31)" name="statementDay" inputMode="numeric" required />
-            <Field label="Last 4 digits" name="last4" inputMode="numeric" maxLength={4} />
+            <Field label={t("statementDay")} name="statementDay" inputMode="numeric" required />
+            <Field label={t("last4")} name="last4" inputMode="numeric" maxLength={4} />
           </div>
 
           <FormSelect
-            label="Due date"
+            label={t("dueDate")}
             name="dueMode"
             value={dueMode}
             onValueChange={(v) => setDueMode(v as "day" | "offset")}
             options={[
-              { value: "day", label: "Fixed day of month" },
-              { value: "offset", label: "Days after statement" },
+              { value: "day", label: t("dueFixed") },
+              { value: "offset", label: t("dueOffset") },
             ]}
           />
           {dueMode === "day" ? (
-            <Field label="Due day (1–31)" name="dueDay" inputMode="numeric" />
+            <Field label={t("dueDay")} name="dueDay" inputMode="numeric" />
           ) : (
-            <Field label="Days after statement" name="dueOffsetDays" inputMode="numeric" />
+            <Field label={t("dueOffsetDays")} name="dueOffsetDays" inputMode="numeric" />
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field
-              label="Monthly interest"
+              label={t("interest")}
               name="interestRateMonthly"
               placeholder="0.0175"
-              hint="Ratio, e.g. 0.0175 = 1.75%/mo"
+              hint={t("interestHint")}
             />
-            <Field label="Credit limit" name="creditLimit" inputMode="numeric" />
+            <Field label={t("creditLimit")} name="creditLimit" inputMode="numeric" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Min payment rate" name="minPaymentRate" placeholder="0.10" />
-            <Field label="Min payment floor" name="minPaymentFloor" inputMode="numeric" />
+            <Field label={t("minRate")} name="minPaymentRate" placeholder="0.10" />
+            <Field label={t("minFloor")} name="minPaymentFloor" inputMode="numeric" />
           </div>
         </fieldset>
       )}
 
       <FormError>{state.error}</FormError>
       <div className="flex items-center gap-3">
-        <SubmitButton pending={pending}>Create account</SubmitButton>
+        <SubmitButton pending={pending}>{t("submit")}</SubmitButton>
         <Button type="button" variant="ghost" asChild>
-          <Link href="/accounts">Cancel</Link>
+          <Link href="/accounts">{tc("cancel")}</Link>
         </Button>
       </div>
     </form>

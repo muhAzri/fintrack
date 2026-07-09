@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/accounts", label: "Accounts" },
-  { href: "/transactions", label: "Transactions" },
-  { href: "/calendar", label: "Calendar" },
-];
+  { href: "/dashboard", key: "dashboard" },
+  { href: "/accounts", key: "accounts" },
+  { href: "/transactions", key: "transactions" },
+  { href: "/calendar", key: "calendar" },
+] as const;
 
 export function Nav() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   return (
     <nav className="flex gap-1">
       {LINKS.map((l) => {
@@ -28,7 +30,7 @@ export function Nav() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            {l.label}
+            {t(l.key)}
           </Link>
         );
       })}

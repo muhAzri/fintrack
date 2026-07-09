@@ -2,18 +2,20 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { registerAction, type FormState } from "@/app/actions/auth";
 import { Field, FormError, SubmitButton } from "@/components/form";
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(registerAction, {});
+  const t = useTranslations("auth");
   return (
     <form action={action} className="space-y-4">
-      <h1 className="text-xl font-semibold">Create your account</h1>
-      <Field label="Name (optional)" name="name" autoComplete="name" />
-      <Field label="Email" name="email" type="email" autoComplete="email" required />
+      <h1 className="text-xl font-semibold">{t("registerTitle")}</h1>
+      <Field label={t("name")} name="name" autoComplete="name" />
+      <Field label={t("email")} name="email" type="email" autoComplete="email" required />
       <Field
-        label="Password"
+        label={t("password")}
         name="password"
         type="password"
         autoComplete="new-password"
@@ -21,10 +23,12 @@ export function RegisterForm() {
         required
       />
       <FormError>{state.error}</FormError>
-      <SubmitButton pending={pending}>Create account</SubmitButton>
+      <SubmitButton pending={pending}>{t("registerSubmit")}</SubmitButton>
       <p className="text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="hover:underline">Log in</Link>
+        {t("haveAccount")}{" "}
+        <Link href="/login" className="hover:underline">
+          {t("loginLink")}
+        </Link>
       </p>
     </form>
   );

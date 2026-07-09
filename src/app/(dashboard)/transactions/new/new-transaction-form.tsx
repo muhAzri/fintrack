@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { recordTransactionAction, type TxFormState } from "@/app/actions/transactions";
 import { Field, FormError, FormSelect, type SelectOption, SubmitButton } from "@/components/form";
 import { Button } from "@/components/ui/button";
@@ -26,14 +27,6 @@ export interface TransactionFormData {
 
 type Mode = "expense" | "income" | "transfer" | "payment" | "installment";
 
-const MODES: { value: Mode; label: string }[] = [
-  { value: "expense", label: "Expense" },
-  { value: "income", label: "Income" },
-  { value: "transfer", label: "Transfer" },
-  { value: "payment", label: "Bill payment" },
-  { value: "installment", label: "Installment" },
-];
-
 const toOptions = (items: Option[]): SelectOption[] =>
   items.map((o) => ({ value: o.id, label: o.name }));
 const first = (opts: SelectOption[]): string | undefined => opts[0]?.value;
@@ -43,8 +36,18 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
     recordTransactionAction,
     {},
   );
+  const t = useTranslations("transactionForm");
+  const tc = useTranslations("common");
   const [mode, setMode] = useState<Mode>("expense");
   const [withFee, setWithFee] = useState(false);
+
+  const MODES: { value: Mode; label: string }[] = [
+    { value: "expense", label: t("modeExpense") },
+    { value: "income", label: t("modeIncome") },
+    { value: "transfer", label: t("modeTransfer") },
+    { value: "payment", label: t("modePayment") },
+    { value: "installment", label: t("modeInstallment") },
+  ];
 
   const assetOpts = toOptions(data.assets);
   const expenseOpts = toOptions(data.expenseAccounts);
@@ -55,7 +58,7 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
   }));
   const payFromOpts: SelectOption[] = [
     ...assetOpts,
-    ...data.creditCards.map((c) => ({ value: c.accountId, label: `${c.name} (card)` })),
+    ...data.creditCards.map((c) => ({ value: c.accountId, label: `${c.name} ${t("cardSuffix")}` })),
   ];
 
   return (
@@ -78,23 +81,23 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
 
       {mode === "expense" && (
         <>
-          <FormSelect label="Category" name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
-          <FormSelect label="Paid from" name="sourceAccountId" options={payFromOpts} defaultValue={first(payFromOpts)} required />
+          <FormSelect label={t("category")} name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
+          <FormSelect label={t("paidFrom")} name="sourceAccountId" options={payFromOpts} defaultValue={first(payFromOpts)} required />
         </>
       )}
 
       {mode === "income" && (
         <>
-          <FormSelect label="Source" name="incomeAccountId" options={incomeOpts} defaultValue={first(incomeOpts)} required />
-          <FormSelect label="Received into" name="assetAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
+          <FormSelect label={t("source")} name="incomeAccountId" options={incomeOpts} defaultValue={first(incomeOpts)} required />
+          <FormSelect label={t("receivedInto")} name="assetAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
         </>
       )}
 
       {mode === "transfer" && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <FormSelect label="From" name="fromAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
-            <FormSelect label="To" name="toAccountId" options={assetOpts} defaultValue={assetOpts[1]?.value ?? first(assetOpts)} required />
+            <FormSelect label={t("from")} name="fromAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
+            <FormSelect label={t("to")} name="toAccountId" options={assetOpts} defaultValue={assetOpts[1]?.value ?? first(assetOpts)} required />
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -105,13 +108,13 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
               className="size-4 rounded border-input"
             />
             <Label htmlFor="withFee" className="font-normal">
-              Add an admin/top-up fee
+              {t("addFee")}
             </Label>
           </div>
           {withFee && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Fee" name="fee" inputMode="numeric" placeholder="1000" />
-              <FormSelect label="Fee category" name="feeAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} />
+              <Field label={t("fee")} name="fee" inputMode="numeric" placeholder="1000" />
+              <FormSelect label={t("feeCategory")} name="feeAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} />
             </div>
           )}
         </>
@@ -119,37 +122,39 @@ export function NewTransactionForm({ data }: { data: TransactionFormData }) {
 
       {mode === "payment" && (
         <>
-          <FormSelect label="Card / paylater" name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
-          <FormSelect label="Pay from" name="sourceAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
+          <FormSelect label={t("card")} name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
+          <FormSelect label={t("payFrom")} name="sourceAccountId" options={assetOpts} defaultValue={first(assetOpts)} required />
         </>
       )}
 
       {mode === "installment" && (
         <>
-          <FormSelect label="Card / paylater" name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
-          <FormSelect label="Category" name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
+          <FormSelect label={t("card")} name="creditAccountId" options={cardOpts} defaultValue={first(cardOpts)} required />
+          <FormSelect label={t("category")} name="expenseAccountId" options={expenseOpts} defaultValue={first(expenseOpts)} required />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Tenor (months)" name="tenorMonths" inputMode="numeric" placeholder="3" required />
-            <Field label="Monthly interest" name="interestRateMonthly" placeholder="0" hint="0 for 0%" />
+            <Field label={t("tenor")} name="tenorMonths" inputMode="numeric" placeholder="3" required />
+            <Field label={t("interest")} name="interestRateMonthly" placeholder="0" hint={t("interestHint")} />
           </div>
         </>
       )}
 
       <Field
-        label={mode === "installment" ? "Total principal" : "Amount"}
+        label={mode === "installment" ? t("totalPrincipal") : t("amount")}
         name="amount"
         inputMode="numeric"
         placeholder="0"
         required
       />
-      <Field label="Date" name="date" type="date" />
-      {mode !== "payment" && <Field label="Description" name="description" placeholder="Optional" />}
+      <Field label={t("date")} name="date" type="date" />
+      {mode !== "payment" && (
+        <Field label={t("description")} name="description" placeholder={t("descriptionPlaceholder")} />
+      )}
 
       <FormError>{state.error}</FormError>
       <div className="flex items-center gap-3">
-        <SubmitButton pending={pending}>Record transaction</SubmitButton>
+        <SubmitButton pending={pending}>{t("submit")}</SubmitButton>
         <Button type="button" variant="ghost" asChild>
-          <Link href="/transactions">Cancel</Link>
+          <Link href="/transactions">{tc("cancel")}</Link>
         </Button>
       </div>
     </form>

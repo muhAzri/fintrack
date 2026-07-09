@@ -5,6 +5,7 @@
 // goes through the ledger/billing engines, which enforce Σ=0 and tenancy.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/dal";
 import { postTransaction, reverseTransaction } from "@/lib/ledger";
 import { createInstallmentPurchase, recordCardPayment } from "@/lib/billing";
@@ -39,6 +40,7 @@ export async function recordTransactionAction(
   formData: FormData,
 ): Promise<TxFormState> {
   const user = await requireUser();
+  const t = await getTranslations("transactionForm");
   const mode = str(formData, "mode");
 
   try {
@@ -118,10 +120,13 @@ export async function recordTransactionAction(
         break;
       }
       default:
-        return { error: "Unknown transaction type." };
+        return { error: t("errUnknown") };
     }
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not record the transaction." };
+    if (err instanceof Error && err.message === "Amount must be greater than 0.") {
+      return { error: t("errPositive") };
+    }
+    return { error: t("errGeneric") };
   }
 
   revalidatePath("/transactions");

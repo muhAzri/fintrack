@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/dal";
 import { listAccounts, moneyStorageView } from "@/lib/accounts";
 import { outstandingLiabilities } from "@/lib/billing";
@@ -6,17 +7,11 @@ import { formatIDR, money } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SUBTYPE_LABEL: Record<string, string> = {
-  CASH: "Cash",
-  BANK: "Banks",
-  EWALLET: "E-wallets",
-  RECEIVABLE: "Receivables",
-  INVESTMENT: "Investments",
-  OTHER: "Other",
-};
-
 export default async function AccountsPage() {
   const user = await requireUser();
+  const t = await getTranslations("accounts");
+  const st = await getTranslations("accountSubtypeGroup");
+  const sub = await getTranslations("accountSubtype");
   const [storage, outstanding, liabilities] = await Promise.all([
     moneyStorageView(user.id),
     outstandingLiabilities(user.id),
@@ -26,9 +21,9 @@ export default async function AccountsPage() {
   return (
     <main className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <Button asChild size="sm">
-          <Link href="/accounts/new">New account</Link>
+          <Link href="/accounts/new">{t("new")}</Link>
         </Button>
       </div>
 
@@ -36,7 +31,7 @@ export default async function AccountsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total liquid (cash + banks + e-wallets)
+            {t("totalLiquidLabel")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -44,7 +39,7 @@ export default async function AccountsPage() {
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
             {Object.entries(storage.subtotalsBySubtype).map(([subtype, total]) => (
               <span key={subtype}>
-                {SUBTYPE_LABEL[subtype] ?? subtype}:{" "}
+                {st(subtype)}:{" "}
                 <span className="font-medium tabular-nums text-foreground">
                   {formatIDR(money(total ?? 0n))}
                 </span>
@@ -55,28 +50,28 @@ export default async function AccountsPage() {
       </Card>
 
       <AccountList
-        title="Assets"
+        title={t("assets")}
         rows={storage.accounts.map((a) => ({
           id: a.id,
           name: a.name,
-          meta: SUBTYPE_LABEL[a.subtype ?? "OTHER"] ?? a.subtype ?? "",
+          meta: a.subtype ? st(a.subtype) : "",
           amount: formatIDR(money(a.balance)),
         }))}
-        empty="No asset accounts yet."
+        empty={t("emptyAssets")}
       />
 
       <AccountList
-        title="Liabilities"
+        title={t("liabilities")}
         rows={liabilities.map((a) => {
           const out = outstanding.perAccount.find((o) => o.accountId === a.id);
           return {
             id: a.id,
             name: a.name,
-            meta: a.subtype ?? "",
+            meta: a.subtype ? sub(a.subtype) : "",
             amount: formatIDR(money(out?.outstanding ?? 0n)),
           };
         })}
-        empty="No credit cards or paylater accounts yet."
+        empty={t("emptyLiabilities")}
       />
     </main>
   );

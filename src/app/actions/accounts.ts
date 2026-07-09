@@ -4,6 +4,7 @@
 // resolves the user first (§6.0) so every write is tenant-scoped.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { ZodError } from "zod";
 import { requireUser } from "@/lib/auth/dal";
 import { createAccount, setAccountArchived, type CreateAccountInput } from "@/lib/accounts";
@@ -31,6 +32,7 @@ export async function createAccountAction(
   formData: FormData,
 ): Promise<AccountFormState> {
   const user = await requireUser();
+  const t = await getTranslations("accountForm");
   const type = String(formData.get("type") ?? "");
   const subtype = String(formData.get("subtype") ?? "");
   const isCredit = subtype === "CREDIT_CARD" || subtype === "PAYLATER";
@@ -39,7 +41,7 @@ export async function createAccountAction(
   try {
     openingBalance = toBigintOrNull(formData.get("openingBalance")) ?? 0n;
   } catch {
-    return { error: "Opening balance must be a whole rupiah amount." };
+    return { error: t("errOpening") };
   }
 
   const input = {
@@ -70,9 +72,9 @@ export async function createAccountAction(
     await createAccount(user.id, input);
   } catch (err) {
     if (err instanceof ZodError) {
-      return { error: err.issues[0]?.message ?? "Please check the account details." };
+      return { error: err.issues[0]?.message ?? t("errCheck") };
     }
-    return { error: err instanceof Error ? err.message : "Could not create the account." };
+    return { error: err instanceof Error ? err.message : t("errGeneric") };
   }
 
   revalidatePath("/accounts");
