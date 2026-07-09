@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { logoutAction } from "@/app/actions/auth";
 import { requireUser } from "@/lib/auth/dal";
 import { Button } from "@/components/ui/button";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { titleCase } from "@/lib/utils";
 import { Nav } from "./nav";
 
@@ -25,6 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {titleCase(user.name ?? user.email)}
             </span>
+            <LocaleSwitcher />
             <form action={logoutAction}>
               <Button type="submit" variant="outline" size="sm">
                 {t("logout")}
