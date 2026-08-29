@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Box, Button, Container, Flex, Heading, Text } from "@chakra-ui/react";
+import { FiSettings } from "react-icons/fi";
+import { Box, Button, Container, Flex, Heading, IconButton, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 
@@ -25,6 +27,11 @@ export default async function DashboardLayout({
               <Text fontSize="sm" color="fg.muted" display={{ base: "none", sm: "block" }}>
                 {user.email}
               </Text>
+              <IconButton asChild variant="ghost" size="sm" aria-label="Pengaturan akun">
+                <Link href="/dashboard/settings">
+                  <FiSettings />
+                </Link>
+              </IconButton>
               <form action={signOut}>
                 <Button type="submit" variant="outline" size="sm">
                   Keluar
