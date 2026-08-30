@@ -1,5 +1,6 @@
 import { Badge, Card, Flex, Stack, Text } from "@chakra-ui/react";
 import { DeleteExpenseButton } from "./delete-expense-button";
+import { EditExpenseDialog } from "./edit-expense-dialog";
 import type { Expense } from "@/lib/types";
 
 const currency = new Intl.NumberFormat("id-ID", {
@@ -44,6 +45,7 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
                 <Text fontWeight="semibold" whiteSpace="nowrap">
                   {currency.format(Number(expense.amount))}
                 </Text>
+                <EditExpenseDialog expense={expense} />
                 <DeleteExpenseButton
                   id={expense.id}
                   label={`${expense.category} - ${currency.format(Number(expense.amount))}`}
