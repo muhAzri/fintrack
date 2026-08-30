@@ -17,7 +17,7 @@ import type { CategoryBreakdown, DailySeriesPoint } from "@/lib/expense-analytic
 export function CategoryBreakdownChart({ data }: { data: CategoryBreakdown[] }) {
   const chart = useChart<BarList.Data>({
     data: data.map((entry) => ({ name: entry.category, value: entry.total })),
-    series: [{ name: "name", color: "teal.solid" }],
+    series: [{ name: "name", color: "teal.subtle" }],
   });
 
   if (data.length === 0) {
@@ -43,7 +43,7 @@ export function DailyTrendChart({ data }: { data: DailySeriesPoint[] }) {
     data,
     series: [
       { name: "currentMonth", color: "teal.solid", label: "Bulan ini" },
-      { name: "previousMonth", color: "gray.solid", label: "Bulan lalu", strokeDasharray: "4 4" },
+      { name: "previousMonth", color: "fg.muted", label: "Bulan lalu", strokeDasharray: "4 4" },
     ],
   });
 
