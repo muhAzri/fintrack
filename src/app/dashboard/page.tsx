@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
+import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { ExpenseForm } from "./expense-form";
 import { ExpenseList } from "./expense-list";
@@ -98,11 +98,9 @@ export default async function DashboardPage() {
               )}
             </Stack>
 
-            <Link href="/dashboard/analytics">
-              <Text color="teal.fg" fontWeight="medium" whiteSpace="nowrap">
-                Lihat detail →
-              </Text>
-            </Link>
+            <Button asChild size="sm" variant="ghost" colorPalette="teal">
+              <Link href="/dashboard/analytics">Lihat detail →</Link>
+            </Button>
           </Flex>
         </Card.Body>
       </Card.Root>

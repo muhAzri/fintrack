@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
+import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { currency } from "@/lib/format";
 import {
@@ -33,11 +33,9 @@ export default async function AnalyticsPage() {
   return (
     <Stack gap={8}>
       <Stack gap={1}>
-        <Link href="/dashboard">
-          <Text color="fg.muted" fontSize="sm">
-            ← Kembali ke dashboard
-          </Text>
-        </Link>
+        <Button asChild size="sm" variant="ghost" alignSelf="start">
+          <Link href="/dashboard">← Kembali ke dashboard</Link>
+        </Button>
         <Heading size="lg">Analisis Pengeluaran</Heading>
         <Text color="fg.muted">
           Breakdown kategori dan perbandingan pengeluaran bulan ini dengan bulan lalu.
