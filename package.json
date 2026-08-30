@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@chakra-ui/charts": "^3.37.0",
     "@chakra-ui/react": "^3.37.0",
     "@emotion/react": "^11.14.0",
     "@supabase/ssr": "^0.12.5",
