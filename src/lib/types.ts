@@ -1,5 +1,6 @@
 export const CATEGORIES = [
   "Makanan & Minuman",
+  "Jajanan",
   "Transportasi",
   "Belanja",
   "Tagihan & Utilitas",
