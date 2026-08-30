@@ -1,5 +1,3 @@
--- Run this once in the Supabase SQL editor (Dashboard > SQL Editor) for this project.
-
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
