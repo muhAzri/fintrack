@@ -2,12 +2,7 @@ import { Badge, Card, Flex, Stack, Text } from "@chakra-ui/react";
 import { DeleteExpenseButton } from "./delete-expense-button";
 import { EditExpenseDialog } from "./edit-expense-dialog";
 import type { Expense } from "@/lib/types";
-
-const currency = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
+import { currency } from "@/lib/format";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
