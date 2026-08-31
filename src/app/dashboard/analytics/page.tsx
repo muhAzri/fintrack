@@ -3,13 +3,12 @@ import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } fro
 import { createClient } from "@/lib/supabase/server";
 import { currency } from "@/lib/format";
 import {
-  buildDailySeries,
   computeMonthOverMonth,
   getPreviousMonthBounds,
   groupByCategory,
   splitByMonth,
 } from "@/lib/expense-analytics";
-import { CategoryBreakdownChart, DailyTrendChart } from "./analytics-charts";
+import { CategoryBreakdownChart, DailyTrendSection } from "./analytics-charts";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -28,7 +27,6 @@ export default async function AnalyticsPage() {
 
   const categoryBreakdown = groupByCategory(currentMonthExpenses);
   const comparison = computeMonthOverMonth(currentMonthExpenses, previousMonthExpenses, now);
-  const dailySeries = buildDailySeries(currentMonthExpenses, previousMonthExpenses, now);
 
   return (
     <Stack gap={8}>
@@ -102,14 +100,11 @@ export default async function AnalyticsPage() {
         )}
       </Stack>
 
-      <Stack gap={3}>
-        <Heading size="md">Tren harian: bulan ini vs bulan lalu</Heading>
-        <Card.Root variant="outline">
-          <Card.Body>
-            <DailyTrendChart data={dailySeries} />
-          </Card.Body>
-        </Card.Root>
-      </Stack>
+      <DailyTrendSection
+        currentMonthExpenses={currentMonthExpenses}
+        previousMonthExpenses={previousMonthExpenses}
+        todayTimestamp={now.getTime()}
+      />
     </Stack>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { BarList, Chart, useChart } from "@chakra-ui/charts";
+import { Card, Heading, NativeSelect, Stack } from "@chakra-ui/react";
 import {
   CartesianGrid,
   Legend,
@@ -12,7 +14,9 @@ import {
   YAxis,
 } from "recharts";
 import { currency } from "@/lib/format";
+import { buildDailySeries } from "@/lib/expense-analytics";
 import type { CategoryBreakdown, DailySeriesPoint } from "@/lib/expense-analytics";
+import { CATEGORIES, type Expense } from "@/lib/types";
 
 export function CategoryBreakdownChart({ data }: { data: CategoryBreakdown[] }) {
   const chart = useChart<BarList.Data>({
@@ -85,5 +89,50 @@ export function DailyTrendChart({ data }: { data: DailySeriesPoint[] }) {
         </LineChart>
       </ResponsiveContainer>
     </Chart.Root>
+  );
+}
+
+export function DailyTrendSection({
+  currentMonthExpenses,
+  previousMonthExpenses,
+  todayTimestamp,
+}: {
+  currentMonthExpenses: Expense[];
+  previousMonthExpenses: Expense[];
+  todayTimestamp: number;
+}) {
+  const [category, setCategory] = useState("all");
+
+  const dailySeries = useMemo(() => {
+    const matchesCategory = (expense: Expense) => category === "all" || expense.category === category;
+    return buildDailySeries(
+      currentMonthExpenses.filter(matchesCategory),
+      previousMonthExpenses.filter(matchesCategory),
+      new Date(todayTimestamp),
+    );
+  }, [category, currentMonthExpenses, previousMonthExpenses, todayTimestamp]);
+
+  return (
+    <Stack gap={3}>
+      <Stack direction={{ base: "column", sm: "row" }} justify="space-between" align={{ sm: "center" }} gap={2}>
+        <Heading size="md">Tren harian: bulan ini vs bulan lalu</Heading>
+        <NativeSelect.Root size="sm" width={{ base: "full", sm: "56" }}>
+          <NativeSelect.Field value={category} onChange={(event) => setCategory(event.target.value)}>
+            <option value="all">Semua kategori</option>
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Stack>
+      <Card.Root variant="outline">
+        <Card.Body>
+          <DailyTrendChart data={dailySeries} />
+        </Card.Body>
+      </Card.Root>
+    </Stack>
   );
 }
