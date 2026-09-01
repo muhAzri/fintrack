@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
+import { FiPackage } from "react-icons/fi";
+import { Badge, Button, Card, Flex, Heading, Icon, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { ExpenseForm } from "./expense-form";
 import { ExpenseList } from "./expense-list";
@@ -9,6 +10,7 @@ import {
   getPreviousMonthBounds,
   groupByCategory,
   splitByMonth,
+  toRealizedExpenses,
 } from "@/lib/expense-analytics";
 
 export default async function DashboardPage() {
@@ -18,14 +20,27 @@ export default async function DashboardPage() {
   const startOfPreviousMonth = getPreviousMonthBounds(now).start;
   const today = now.toISOString().slice(0, 10);
 
-  const { data } = await supabase
-    .from("expenses")
-    .select("id, amount, category, note, spent_at")
-    .gte("spent_at", startOfPreviousMonth)
-    .order("spent_at", { ascending: false })
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: stockItemsData }, { data: usagesData }] = await Promise.all([
+    supabase
+      .from("expenses")
+      .select("id, amount, category, note, spent_at, stock_item_id, quantity")
+      .gte("spent_at", startOfPreviousMonth)
+      .order("spent_at", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("stock_items")
+      .select("id, name, unit_label, category, costing_method, quantity_on_hand, avg_unit_cost")
+      .order("name", { ascending: true }),
+    supabase
+      .from("stock_usages")
+      .select("id, quantity, realized_amount, used_at, note, stock_item:stock_items(name, category)")
+      .gte("used_at", startOfPreviousMonth),
+  ]);
 
   const allExpenses = data ?? [];
+  const stockItems = stockItemsData ?? [];
+  const usages = usagesData ?? [];
+
   const { currentMonthExpenses, previousMonthExpenses } = splitByMonth(allExpenses, now);
   const expenses = currentMonthExpenses;
 
@@ -34,6 +49,20 @@ export default async function DashboardPage() {
     .reduce((sum, expense) => sum + Number(expense.amount), 0);
   const monthTotal = expenses.reduce(
     (sum, expense) => sum + Number(expense.amount),
+    0,
+  );
+
+  const realizedExpenses = toRealizedExpenses(allExpenses, usages);
+  const { currentMonthExpenses: realizedCurrentMonth } = splitByMonth(realizedExpenses, now);
+  const realizedTodayTotal = realizedCurrentMonth
+    .filter((expense) => expense.spent_at === today)
+    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const realizedMonthTotal = realizedCurrentMonth.reduce(
+    (sum, expense) => sum + Number(expense.amount),
+    0,
+  );
+  const stockValue = stockItems.reduce(
+    (sum, item) => sum + Number(item.quantity_on_hand) * Number(item.avg_unit_cost),
     0,
   );
 
@@ -105,7 +134,45 @@ export default async function DashboardPage() {
         </Card.Body>
       </Card.Root>
 
-      <ExpenseForm />
+      {stockItems.length > 0 && (
+        <Card.Root variant="subtle">
+          <Card.Body>
+            <Flex align="center" justify="space-between" gap={4} wrap="wrap">
+              <Stack gap={1}>
+                <Text color="fg.muted" fontSize="sm">
+                  Realisasi pemakaian stok (barang yang sudah benar-benar dipakai)
+                </Text>
+                <Flex align="baseline" gap={5} wrap="wrap">
+                  <Text>
+                    Hari ini{" "}
+                    <Text as="span" fontWeight="semibold">
+                      {currency.format(realizedTodayTotal)}
+                    </Text>
+                  </Text>
+                  <Text>
+                    Bulan ini{" "}
+                    <Text as="span" fontWeight="semibold">
+                      {currency.format(realizedMonthTotal)}
+                    </Text>
+                  </Text>
+                  <Text color="fg.muted" fontSize="sm">
+                    Nilai stok belum terpakai: {currency.format(stockValue)}
+                  </Text>
+                </Flex>
+              </Stack>
+
+              <Button asChild size="sm" variant="ghost" colorPalette="teal">
+                <Link href="/dashboard/stock">
+                  <Icon as={FiPackage} />
+                  Kelola Stok →
+                </Link>
+              </Button>
+            </Flex>
+          </Card.Body>
+        </Card.Root>
+      )}
+
+      <ExpenseForm stockItems={stockItems} />
 
       <ExpenseList expenses={expenses} />
     </Stack>

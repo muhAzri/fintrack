@@ -79,9 +79,16 @@ export function EditExpenseDialog({ expense }: { expense: Expense }) {
                         min={1}
                         step="1"
                         defaultValue={expense.amount}
+                        readOnly={Boolean(expense.stock_item_id)}
                         required
                       />
                     </InputGroup>
+                    {expense.stock_item_id && (
+                      <Field.HelperText>
+                        Ini pembelian stok - jumlah & isi/satuan tidak bisa diubah di sini. Hapus
+                        dan catat ulang bila keliru.
+                      </Field.HelperText>
+                    )}
                   </Field.Root>
 
                   <Field.Root required>

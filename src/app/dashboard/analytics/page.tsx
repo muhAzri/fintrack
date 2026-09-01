@@ -7,23 +7,37 @@ import {
   getPreviousMonthBounds,
   groupByCategory,
   splitByMonth,
+  toRealizedExpenses,
 } from "@/lib/expense-analytics";
 import { CategoryBreakdownChart, DailyTrendSection } from "./analytics-charts";
+import { ViewToggle, type ExpenseView } from "../view-toggle";
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage(props: PageProps<"/dashboard/analytics">) {
   const supabase = await createClient();
+  const searchParams = await props.searchParams;
+  const view: ExpenseView = searchParams.view === "realized" ? "realized" : "cash";
 
   const now = new Date();
   const startOfPreviousMonth = getPreviousMonthBounds(now).start;
 
-  const { data } = await supabase
-    .from("expenses")
-    .select("id, amount, category, note, spent_at")
-    .gte("spent_at", startOfPreviousMonth)
-    .order("spent_at", { ascending: true });
+  const [{ data }, { data: usagesData }] = await Promise.all([
+    supabase
+      .from("expenses")
+      .select("id, amount, category, note, spent_at, stock_item_id, quantity")
+      .gte("spent_at", startOfPreviousMonth)
+      .order("spent_at", { ascending: true }),
+    view === "realized"
+      ? supabase
+          .from("stock_usages")
+          .select("id, quantity, realized_amount, used_at, note, stock_item:stock_items(name, category)")
+          .gte("used_at", startOfPreviousMonth)
+      : Promise.resolve({ data: null }),
+  ]);
 
   const allExpenses = data ?? [];
-  const { currentMonthExpenses, previousMonthExpenses } = splitByMonth(allExpenses, now);
+  const analyticsSource =
+    view === "realized" ? toRealizedExpenses(allExpenses, usagesData ?? []) : allExpenses;
+  const { currentMonthExpenses, previousMonthExpenses } = splitByMonth(analyticsSource, now);
 
   const categoryBreakdown = groupByCategory(currentMonthExpenses);
   const comparison = computeMonthOverMonth(currentMonthExpenses, previousMonthExpenses, now);
@@ -36,8 +50,12 @@ export default async function AnalyticsPage() {
         </Button>
         <Heading size="lg">Analisis Pengeluaran</Heading>
         <Text color="fg.muted">
-          Breakdown kategori dan perbandingan pengeluaran bulan ini dengan bulan lalu.
+          Breakdown kategori dan perbandingan pengeluaran bulan ini dengan bulan lalu.{" "}
+          {view === "realized"
+            ? "Menampilkan realisasi pemakaian: pembelian stok dihitung saat dipakai, bukan saat dibeli."
+            : "Menampilkan uang keluar: semua transaksi dihitung di tanggal pembelian."}
         </Text>
+        <ViewToggle view={view} basePath="/dashboard/analytics" />
       </Stack>
 
       <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4}>

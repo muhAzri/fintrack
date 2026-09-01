@@ -27,8 +27,13 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
           <Card.Body>
             <Flex align="center" justify="space-between" gap={4}>
               <Stack gap={1}>
-                <Flex align="center" gap={2}>
+                <Flex align="center" gap={2} wrap="wrap">
                   <Badge colorPalette="teal">{expense.category}</Badge>
+                  {expense.stock_item_id && (
+                    <Badge colorPalette="purple" variant="subtle">
+                      Stok · {Number(expense.quantity)}
+                    </Badge>
+                  )}
                   <Text fontSize="sm" color="fg.muted">
                     {dateFormatter.format(new Date(`${expense.spent_at}T00:00:00`))}
                   </Text>

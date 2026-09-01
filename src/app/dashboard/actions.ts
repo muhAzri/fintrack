@@ -29,18 +29,53 @@ export async function addExpense(
     return { error: "Jumlah harus berupa angka lebih dari 0." };
   }
 
-  const { error } = await supabase.from("expenses").insert({
-    user_id: user.id,
-    amount,
-    category,
-    note: note || null,
-  });
+  const isStockPurchase = formData.get("isStockPurchase") === "on";
 
-  if (error) {
-    return { error: "Gagal menyimpan pengeluaran. Coba lagi." };
+  if (isStockPurchase) {
+    const itemName = String(formData.get("stockItemName") ?? "").trim();
+    const unitLabel = String(formData.get("stockUnitLabel") ?? "").trim();
+    const quantity = Number(formData.get("stockQuantity"));
+    const costingMethod = String(formData.get("stockCostingMethod") ?? "average");
+
+    if (!itemName) {
+      return { error: "Nama barang wajib diisi." };
+    }
+    if (!unitLabel) {
+      return { error: "Satuan wajib diisi." };
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return { error: "Isi/jumlah satuan harus lebih dari 0." };
+    }
+
+    const { error } = await supabase.rpc("create_stock_purchase", {
+      p_amount: amount,
+      p_category: category,
+      p_note: note || null,
+      p_item_name: itemName,
+      p_unit_label: unitLabel,
+      p_quantity: quantity,
+      p_costing_method: costingMethod,
+    });
+
+    if (error) {
+      return { error: "Gagal menyimpan pembelian stok. Coba lagi." };
+    }
+  } else {
+    const { error } = await supabase.from("expenses").insert({
+      user_id: user.id,
+      amount,
+      category,
+      note: note || null,
+    });
+
+    if (error) {
+      return { error: "Gagal menyimpan pengeluaran. Coba lagi." };
+    }
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/stock");
+  revalidatePath("/dashboard/analytics");
   return {};
 }
 

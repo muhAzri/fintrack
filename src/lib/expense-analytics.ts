@@ -1,5 +1,39 @@
 import type { Expense } from "@/lib/types";
 
+export type RealizedUsage = {
+  id: string;
+  quantity: number;
+  realized_amount: number;
+  used_at: string;
+  note: string | null;
+  stock_item: { name: string; category: string }[] | null;
+};
+
+/**
+ * "Realized" view: purchases of trackable stock don't count as spent yet (the
+ * money left, but the goods are still sitting as inventory), so they're
+ * swapped out for the usage entries logged as those goods actually get
+ * consumed. Everything else (non-stock expenses) passes through unchanged,
+ * which lets this feed straight into the same category/daily-series helpers
+ * used for the cash-outflow view.
+ */
+export function toRealizedExpenses(expenses: Expense[], usages: RealizedUsage[]): Expense[] {
+  const nonStockExpenses = expenses.filter((expense) => !expense.stock_item_id);
+
+  const usageExpenses: Expense[] = usages.map((usage) => {
+    const stockItem = usage.stock_item?.[0];
+    return {
+      id: usage.id,
+      amount: usage.realized_amount,
+      category: stockItem?.category ?? "Lainnya",
+      note: stockItem ? `${stockItem.name} (pemakaian)` : "Pemakaian stok",
+      spent_at: usage.used_at,
+    };
+  });
+
+  return [...nonStockExpenses, ...usageExpenses];
+}
+
 function toLocalDate(dateString: string): Date {
   return new Date(`${dateString}T00:00:00`);
 }
