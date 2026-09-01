@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
-import { Card, Heading, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Card, Flex, Heading, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { currency } from "@/lib/format";
 import { StockItemCard } from "./stock-item-card";
@@ -36,6 +36,7 @@ export default async function StockPage() {
           color="fg.muted"
           _hover={{ color: "fg" }}
           w="fit-content"
+          display={{ base: "none", md: "flex" }}
         >
           <Link href="/dashboard">
             <FiArrowLeft />
@@ -75,47 +76,74 @@ export default async function StockPage() {
             </Card.Body>
           </Card.Root>
         ) : (
-          <Card.Root variant="outline">
-            <Card.Body>
-              <Table.Root size="sm">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeader>Tanggal</Table.ColumnHeader>
-                    <Table.ColumnHeader>Barang</Table.ColumnHeader>
-                    <Table.ColumnHeader>Jumlah</Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="end">Realisasi</Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {usages.map((usage) => {
-                    const stockItem = usage.stock_item?.[0];
-                    return (
-                      <Table.Row key={usage.id}>
-                        <Table.Cell>
-                          {dateFormatter.format(new Date(`${usage.used_at}T00:00:00`))}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {stockItem?.name ?? "-"}
-                          {usage.note && (
-                            <Text as="span" color="fg.muted">
-                              {" "}
-                              · {usage.note}
-                            </Text>
-                          )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {Number(usage.quantity)} {stockItem?.unit_label ?? ""}
-                        </Table.Cell>
-                        <Table.Cell textAlign="end">
+          <>
+            <Card.Root variant="outline" display={{ base: "none", md: "block" }}>
+              <Card.Body>
+                <Table.Root size="sm">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeader>Tanggal</Table.ColumnHeader>
+                      <Table.ColumnHeader>Barang</Table.ColumnHeader>
+                      <Table.ColumnHeader>Jumlah</Table.ColumnHeader>
+                      <Table.ColumnHeader textAlign="end">Realisasi</Table.ColumnHeader>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {usages.map((usage) => {
+                      const stockItem = usage.stock_item?.[0];
+                      return (
+                        <Table.Row key={usage.id}>
+                          <Table.Cell>
+                            {dateFormatter.format(new Date(`${usage.used_at}T00:00:00`))}
+                          </Table.Cell>
+                          <Table.Cell>
+                            {stockItem?.name ?? "-"}
+                            {usage.note && (
+                              <Text as="span" color="fg.muted">
+                                {" "}
+                                · {usage.note}
+                              </Text>
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>
+                            {Number(usage.quantity)} {stockItem?.unit_label ?? ""}
+                          </Table.Cell>
+                          <Table.Cell textAlign="end">
+                            {currency.format(Number(usage.realized_amount))}
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </Table.Root>
+              </Card.Body>
+            </Card.Root>
+
+            <Stack gap={2} display={{ base: "flex", md: "none" }}>
+              {usages.map((usage) => {
+                const stockItem = usage.stock_item?.[0];
+                return (
+                  <Card.Root key={usage.id} variant="outline">
+                    <Card.Body py={3}>
+                      <Flex align="center" justify="space-between" gap={2}>
+                        <Stack gap={0}>
+                          <Text fontWeight="semibold">{stockItem?.name ?? "-"}</Text>
+                          <Text fontSize="sm" color="fg.muted">
+                            {dateFormatter.format(new Date(`${usage.used_at}T00:00:00`))} ·{" "}
+                            {Number(usage.quantity)} {stockItem?.unit_label ?? ""}
+                            {usage.note && ` · ${usage.note}`}
+                          </Text>
+                        </Stack>
+                        <Text fontWeight="semibold" whiteSpace="nowrap">
                           {currency.format(Number(usage.realized_amount))}
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
-                </Table.Body>
-              </Table.Root>
-            </Card.Body>
-          </Card.Root>
+                        </Text>
+                      </Flex>
+                    </Card.Body>
+                  </Card.Root>
+                );
+              })}
+            </Stack>
+          </>
         )}
       </Stack>
     </Stack>

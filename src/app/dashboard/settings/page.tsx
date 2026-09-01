@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
-import { Heading, HStack, Stack, Text } from "@chakra-ui/react";
+import { Button, Heading, HStack, Separator, Stack, Text } from "@chakra-ui/react";
 import { ChangePasswordForm } from "./change-password-form";
+import { signOut } from "@/lib/actions/auth";
 
 export default function SettingsPage() {
   return (
@@ -25,6 +26,14 @@ export default function SettingsPage() {
       </Stack>
 
       <ChangePasswordForm />
+
+      <Separator />
+
+      <form action={signOut}>
+        <Button type="submit" variant="outline" size="sm">
+          Keluar
+        </Button>
+      </form>
     </Stack>
   );
 }

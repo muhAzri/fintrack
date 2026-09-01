@@ -45,7 +45,13 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
   return (
     <Stack gap={8}>
       <Stack gap={1}>
-        <Button asChild size="sm" variant="ghost" alignSelf="start">
+        <Button
+          asChild
+          size="sm"
+          variant="ghost"
+          alignSelf="start"
+          display={{ base: "none", md: "inline-flex" }}
+        >
           <Link href="/dashboard">← Kembali ke dashboard</Link>
         </Button>
         <Heading size="lg">Analisis Pengeluaran</Heading>

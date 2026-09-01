@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FiPackage } from "react-icons/fi";
-import { Badge, Button, Card, Flex, Heading, Icon, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, Card, Flex, Heading, Icon, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { ExpenseForm } from "./expense-form";
 import { ExpenseList } from "./expense-list";
@@ -172,7 +172,9 @@ export default async function DashboardPage() {
         </Card.Root>
       )}
 
-      <ExpenseForm stockItems={stockItems} />
+      <Box display={{ base: "none", md: "block" }}>
+        <ExpenseForm stockItems={stockItems} />
+      </Box>
 
       <ExpenseList expenses={expenses} />
     </Stack>

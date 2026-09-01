@@ -126,7 +126,13 @@ function StockPurchaseFields({ stockItems }: { stockItems: StockItem[] }) {
   );
 }
 
-export function ExpenseForm({ stockItems }: { stockItems: StockItem[] }) {
+export function ExpenseForm({
+  stockItems,
+  onSuccess,
+}: {
+  stockItems: StockItem[];
+  onSuccess?: () => void;
+}) {
   const [state, formAction, pending] = useActionState(addExpense, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -149,7 +155,8 @@ export function ExpenseForm({ stockItems }: { stockItems: StockItem[] }) {
     formRef.current?.reset();
     amountRef.current?.focus();
     toaster.create({ type: "success", title: "Pengeluaran tersimpan" });
-  }, [state]);
+    onSuccess?.();
+  }, [state, onSuccess]);
 
   return (
     <Card.Root variant="outline">

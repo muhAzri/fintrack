@@ -3,7 +3,15 @@ import { Button, Container, Flex, Heading } from "@chakra-ui/react";
 
 export function Navbar({ authed }: { authed: boolean }) {
   return (
-    <Flex as="header" borderBottomWidth="1px" bg="bg" position="sticky" top={0} zIndex="1">
+    <Flex
+      as="header"
+      borderBottomWidth="1px"
+      bg="bg"
+      position="sticky"
+      top={0}
+      zIndex="1"
+      pt="env(safe-area-inset-top, 0px)"
+    >
       <Container maxW="5xl">
         <Flex align="center" justify="space-between" py={4}>
           <Heading asChild size="md" letterSpacing="tight">
