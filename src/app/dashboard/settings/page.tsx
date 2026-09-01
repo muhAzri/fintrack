@@ -15,6 +15,7 @@ export default function SettingsPage() {
           color="fg.muted"
           _hover={{ color: "fg" }}
           w="fit-content"
+          display={{ base: "none", md: "flex" }}
         >
           <Link href="/dashboard">
             <FiArrowLeft />

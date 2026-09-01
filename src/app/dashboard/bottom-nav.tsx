@@ -2,59 +2,59 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiBarChart2, FiHome, FiPackage, FiPlus } from "react-icons/fi";
+import { FiBarChart2, FiHome, FiPackage, FiPlus, FiSettings } from "react-icons/fi";
 import { Box, Flex, Icon, IconButton, Text } from "@chakra-ui/react";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard", icon: FiHome, exact: true },
   { href: "/dashboard/analytics", label: "Analisis", icon: FiBarChart2, exact: false },
   { href: "/dashboard/stock", label: "Stok", icon: FiPackage, exact: false },
+  { href: "/dashboard/settings", label: "Akun", icon: FiSettings, exact: false },
 ] as const;
 
 export function BottomNav({ onAddClick }: { onAddClick: () => void }) {
   const pathname = usePathname();
 
   return (
-    <Flex
-      as="nav"
+    <Box
       position="fixed"
       bottom={0}
       insetX={0}
       zIndex="docked"
-      display={{ base: "flex", md: "none" }}
-      align="center"
-      justify="space-around"
-      bg="bg"
-      borderTopWidth="1px"
-      pt={2}
-      pb="max(env(safe-area-inset-bottom, 0px), 0.5rem)"
+      display={{ base: "block", md: "none" }}
     >
-      {TABS.slice(0, 2).map((tab) => (
-        <NavTab key={tab.href} {...tab} active={isActive(pathname, tab)} />
-      ))}
+      <IconButton
+        aria-label="Tambah pengeluaran"
+        onClick={onAddClick}
+        colorPalette="teal"
+        rounded="full"
+        size="lg"
+        boxShadow="lg"
+        position="absolute"
+        top="-1.5rem"
+        left="50%"
+        transform="translateX(-50%)"
+        minW="14"
+        minH="14"
+        _active={{ transform: "translateX(-50%) scale(0.96)" }}
+      >
+        <Icon as={FiPlus} boxSize={6} />
+      </IconButton>
 
-      <Box position="relative" w="16" display="flex" justifyContent="center">
-        <IconButton
-          aria-label="Tambah pengeluaran"
-          onClick={onAddClick}
-          colorPalette="teal"
-          rounded="full"
-          size="lg"
-          boxShadow="lg"
-          position="relative"
-          top="-1.25rem"
-          minW="14"
-          minH="14"
-          _active={{ transform: "translateY(-1.25rem) scale(0.96)" }}
-        >
-          <Icon as={FiPlus} boxSize={6} />
-        </IconButton>
-      </Box>
-
-      {TABS.slice(2).map((tab) => (
-        <NavTab key={tab.href} {...tab} active={isActive(pathname, tab)} />
-      ))}
-    </Flex>
+      <Flex
+        as="nav"
+        align="center"
+        justify="space-around"
+        bg="bg"
+        borderTopWidth="1px"
+        pt={2}
+        pb="max(env(safe-area-inset-bottom, 0px), 0.5rem)"
+      >
+        {TABS.map((tab) => (
+          <NavTab key={tab.href} {...tab} active={isActive(pathname, tab)} />
+        ))}
+      </Flex>
+    </Box>
   );
 }
 

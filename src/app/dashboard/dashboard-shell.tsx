@@ -59,7 +59,13 @@ export function DashboardShell({
                   <FiPackage />
                 </Link>
               </IconButton>
-              <IconButton asChild variant="ghost" size="sm" aria-label="Pengaturan akun" minW="11" minH="11">
+              <IconButton
+                asChild
+                variant="ghost"
+                size="sm"
+                aria-label="Pengaturan akun"
+                display={{ base: "none", md: "inline-flex" }}
+              >
                 <Link href="/dashboard/settings">
                   <FiSettings />
                 </Link>
