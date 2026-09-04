@@ -163,7 +163,9 @@ export default async function DashboardPage() {
 
               <Button asChild size="sm" variant="ghost" colorPalette="teal">
                 <Link href="/dashboard/stock">
-                  <Icon as={FiPackage} />
+                  <Icon>
+                    <FiPackage />
+                  </Icon>
                   Kelola Stok →
                 </Link>
               </Button>
