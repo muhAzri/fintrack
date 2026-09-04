@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ExpenseForm } from "./expense-form";
 import { ExpenseList } from "./expense-list";
 import { currency } from "@/lib/format";
+import { CategoryBreakdownChart } from "./analytics/analytics-charts";
 import {
   computeMonthOverMonth,
   getPreviousMonthBounds,
@@ -44,9 +45,9 @@ export default async function DashboardPage() {
   const { currentMonthExpenses, previousMonthExpenses } = splitByMonth(allExpenses, now);
   const expenses = currentMonthExpenses;
 
-  const todayTotal = expenses
-    .filter((expense) => expense.spent_at === today)
-    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const todayExpenses = expenses.filter((expense) => expense.spent_at === today);
+  const todayTotal = todayExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const todayByCategory = groupByCategory(todayExpenses);
   const monthTotal = expenses.reduce(
     (sum, expense) => sum + Number(expense.amount),
     0,
@@ -96,6 +97,23 @@ export default async function DashboardPage() {
           </Card.Body>
         </Card.Root>
       </SimpleGrid>
+
+      <Stack gap={3}>
+        <Heading size="md">Pengeluaran hari ini per kategori</Heading>
+        {todayByCategory.length > 0 ? (
+          <Card.Root variant="outline">
+            <Card.Body>
+              <CategoryBreakdownChart data={todayByCategory} />
+            </Card.Body>
+          </Card.Root>
+        ) : (
+          <Card.Root variant="subtle">
+            <Card.Body textAlign="center" color="fg.muted" py={6}>
+              <Text>Belum ada pengeluaran hari ini.</Text>
+            </Card.Body>
+          </Card.Root>
+        )}
+      </Stack>
 
       <Card.Root variant="outline">
         <Card.Body>
