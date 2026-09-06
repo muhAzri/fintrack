@@ -7,6 +7,7 @@ export const CATEGORIES = [
   "Tagihan & Utilitas",
   "Hiburan",
   "Kesehatan",
+  "Rumah Tangga",
   "Lainnya",
 ] as const;
 
