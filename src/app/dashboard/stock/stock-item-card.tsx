@@ -17,6 +17,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { logStockUsage, updateCostingMethod, type StockActionState } from "./actions";
+import { DeleteStockItemButton } from "./delete-stock-item-button";
 import { COSTING_METHODS, type StockItem } from "@/lib/types";
 import { currency } from "@/lib/format";
 import { toaster } from "@/components/ui/toaster";
@@ -64,24 +65,27 @@ export function StockItemCard({ item }: { item: StockItem }) {
               </Text>
             </Stack>
 
-            <NativeSelect.Root size="sm" width="52" disabled={methodPending}>
-              <NativeSelect.Field
-                defaultValue={item.costing_method}
-                onChange={(event) => {
-                  const method = event.target.value;
-                  startMethodTransition(() => {
-                    updateCostingMethod(item.id, method);
-                  });
-                }}
-              >
-                {COSTING_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {COSTING_METHOD_LABELS[method]}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
+            <HStack gap={2}>
+              <NativeSelect.Root size="sm" width="52" disabled={methodPending}>
+                <NativeSelect.Field
+                  defaultValue={item.costing_method}
+                  onChange={(event) => {
+                    const method = event.target.value;
+                    startMethodTransition(() => {
+                      updateCostingMethod(item.id, method);
+                    });
+                  }}
+                >
+                  {COSTING_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {COSTING_METHOD_LABELS[method]}
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
+              <DeleteStockItemButton id={item.id} label={item.name} />
+            </HStack>
           </Flex>
 
           {state.error && (

@@ -117,6 +117,8 @@ export async function updateExpense(
 
 export async function deleteExpense(id: string) {
   const supabase = await createClient();
-  await supabase.from("expenses").delete().eq("id", id);
+  await supabase.rpc("delete_stock_purchase_expense", { p_expense_id: id });
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/stock");
+  revalidatePath("/dashboard/analytics");
 }

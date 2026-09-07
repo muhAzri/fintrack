@@ -50,6 +50,21 @@ export async function logStockUsage(
   return {};
 }
 
+export async function deleteStockItem(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  await supabase.rpc("delete_stock_item", { p_stock_item_id: id });
+
+  revalidatePath("/dashboard/stock");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/analytics");
+}
+
 export async function updateCostingMethod(stockItemId: string, method: string) {
   if (!COSTING_METHODS.includes(method as CostingMethod)) return;
 
