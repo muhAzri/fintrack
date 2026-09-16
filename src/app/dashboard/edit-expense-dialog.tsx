@@ -17,6 +17,7 @@ import {
 import { updateExpense } from "./actions";
 import { CATEGORIES, type Expense, type ExpenseSource } from "@/lib/types";
 import { toaster } from "@/components/ui/toaster";
+import { todayLocalDate } from "@/lib/format";
 
 export function EditExpenseDialog({
   expense,
@@ -109,6 +110,20 @@ export function EditExpenseDialog({
                       </NativeSelect.Field>
                       <NativeSelect.Indicator />
                     </NativeSelect.Root>
+                  </Field.Root>
+
+                  <Field.Root required>
+                    <Field.Label>Tanggal</Field.Label>
+                    <Input
+                      name="spentAt"
+                      type="date"
+                      defaultValue={expense.spent_at}
+                      max={todayLocalDate()}
+                      required
+                    />
+                    <Field.HelperText>
+                      Lupa catat kemarin? Ubah tanggalnya ke hari transaksi sebenarnya.
+                    </Field.HelperText>
                   </Field.Root>
 
                   <Field.Root>

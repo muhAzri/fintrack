@@ -19,6 +19,7 @@ import {
 import { addExpense, type ExpenseFormState } from "./actions";
 import { CATEGORIES, COSTING_METHODS, type ExpenseSource, type StockItem } from "@/lib/types";
 import { toaster } from "@/components/ui/toaster";
+import { todayLocalDate } from "@/lib/format";
 
 const initialState: ExpenseFormState = {};
 
@@ -204,6 +205,11 @@ export function ExpenseForm({
                   </NativeSelect.Field>
                   <NativeSelect.Indicator />
                 </NativeSelect.Root>
+              </Field.Root>
+
+              <Field.Root required maxW={{ base: "full", sm: "40" }}>
+                <Field.Label>Tanggal</Field.Label>
+                <Input name="spentAt" type="date" defaultValue={todayLocalDate()} max={todayLocalDate()} required />
               </Field.Root>
             </HStack>
 

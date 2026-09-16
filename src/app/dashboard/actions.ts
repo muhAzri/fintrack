@@ -3,10 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORIES } from "@/lib/types";
+import { todayLocalDate } from "@/lib/format";
 
 export type ExpenseFormState = {
   error?: string;
 };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseSpentAt(formData: FormData): { value: string } | { error: string } {
+  const raw = String(formData.get("spentAt") ?? "").trim();
+  if (!raw) return { value: todayLocalDate() };
+  if (!DATE_RE.test(raw) || Number.isNaN(new Date(raw).getTime())) {
+    return { error: "Tanggal tidak valid." };
+  }
+  if (raw > todayLocalDate()) {
+    return { error: "Tanggal transaksi tidak boleh di masa depan." };
+  }
+  return { value: raw };
+}
 
 async function resolveSourceId(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -66,6 +81,11 @@ export async function addExpense(
     return { error: "Jumlah harus berupa angka lebih dari 0." };
   }
 
+  const spentAt = parseSpentAt(formData);
+  if ("error" in spentAt) {
+    return { error: spentAt.error };
+  }
+
   const { id: sourceId, error: sourceError } = await resolveSourceId(supabase, user.id, sourceName);
   if (sourceError) {
     return { error: sourceError };
@@ -97,6 +117,7 @@ export async function addExpense(
       p_unit_label: unitLabel,
       p_quantity: quantity,
       p_costing_method: costingMethod,
+      p_spent_at: spentAt.value,
     });
 
     if (error) {
@@ -117,6 +138,7 @@ export async function addExpense(
       category,
       note: note || null,
       source_id: sourceId,
+      spent_at: spentAt.value,
     });
 
     if (error) {
@@ -153,6 +175,11 @@ export async function updateExpense(
     return { error: "Jumlah harus berupa angka lebih dari 0." };
   }
 
+  const spentAt = parseSpentAt(formData);
+  if ("error" in spentAt) {
+    return { error: spentAt.error };
+  }
+
   const { id: sourceId, error: sourceError } = await resolveSourceId(supabase, user.id, sourceName);
   if (sourceError) {
     return { error: sourceError };
@@ -160,7 +187,7 @@ export async function updateExpense(
 
   const { error } = await supabase
     .from("expenses")
-    .update({ amount, category, note: note || null, source_id: sourceId })
+    .update({ amount, category, note: note || null, source_id: sourceId, spent_at: spentAt.value })
     .eq("id", id)
     .eq("user_id", user.id);
 
