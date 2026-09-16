@@ -46,7 +46,7 @@ export function TransactionTable({
                     )}
                   </Table.Cell>
                   <Table.Cell color="fg.muted">{expense.note || "-"}</Table.Cell>
-                  <Table.Cell>{expense.source?.[0]?.name ?? "-"}</Table.Cell>
+                  <Table.Cell>{expense.source?.name ?? "-"}</Table.Cell>
                   <Table.Cell textAlign="end" fontWeight="semibold" whiteSpace="nowrap">
                     {currency.format(Number(expense.amount))}
                   </Table.Cell>
@@ -74,8 +74,8 @@ export function TransactionTable({
                 <Stack gap={1}>
                   <Flex align="center" gap={2} wrap="wrap">
                     <Badge colorPalette="teal">{expense.category}</Badge>
-                    <Badge colorPalette={expense.source?.[0]?.name ? "blue" : "gray"} variant="subtle">
-                      {expense.source?.[0]?.name ?? "Tidak Terkategorisasi"}
+                    <Badge colorPalette={expense.source?.name ? "blue" : "gray"} variant="subtle">
+                      {expense.source?.name ?? "Tidak Terkategorisasi"}
                     </Badge>
                     {expense.stock_item_id && (
                       <Badge colorPalette="purple" variant="subtle">

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { HStack, IconButton, Input, Text } from "@chakra-ui/react";
+import { buildHistoryHref, type HistoryFilterState } from "./query";
 
 function shiftMonthKey(monthKey: string, delta: number): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -19,15 +20,17 @@ export function MonthPicker({
   monthKey,
   monthLabel,
   disableNext,
+  filters,
 }: {
   monthKey: string;
   monthLabel: string;
   disableNext: boolean;
+  filters: HistoryFilterState;
 }) {
   const router = useRouter();
 
   function goTo(key: string) {
-    router.push(`/dashboard/history?month=${key}`);
+    router.push(buildHistoryHref({ ...filters, month: key }));
   }
 
   return (

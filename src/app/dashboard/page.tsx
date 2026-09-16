@@ -13,6 +13,7 @@ import {
   splitByMonth,
   toRealizedExpenses,
 } from "@/lib/expense-analytics";
+import { normalizeExpenseSource, type Expense } from "@/lib/types";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -42,7 +43,10 @@ export default async function DashboardPage() {
       supabase.from("expense_sources").select("id, name").order("name", { ascending: true }),
     ]);
 
-  const allExpenses = data ?? [];
+  const allExpenses: Expense[] = (data ?? []).map((row) => ({
+    ...row,
+    source: normalizeExpenseSource(row.source),
+  }));
   const stockItems = stockItemsData ?? [];
   const usages = usagesData ?? [];
   const sources = sourcesData ?? [];

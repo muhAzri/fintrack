@@ -20,13 +20,27 @@ export type Expense = {
   stock_item_id?: string | null;
   quantity?: number | null;
   source_id?: string | null;
-  source?: { name: string }[] | null;
+  source?: { name: string } | null;
 };
 
 export type ExpenseSource = {
   id: string;
   name: string;
 };
+
+/**
+ * Without generated Database types, supabase-js can't tell that
+ * `expenses.source_id` is a many-to-one FK, so it types the embedded
+ * `source:expense_sources(name)` relation as an array even though
+ * PostgREST returns a single object (or null) at runtime. Normalize
+ * either shape here instead of trusting the inferred type.
+ */
+export function normalizeExpenseSource(
+  source: { name: string } | { name: string }[] | null | undefined,
+): { name: string } | null {
+  if (!source) return null;
+  return Array.isArray(source) ? (source[0] ?? null) : source;
+}
 
 export const COSTING_METHODS = ["average", "fifo"] as const;
 export type CostingMethod = (typeof COSTING_METHODS)[number];

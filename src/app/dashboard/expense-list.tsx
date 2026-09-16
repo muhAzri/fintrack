@@ -35,8 +35,8 @@ export function ExpenseList({
               <Stack gap={1}>
                 <Flex align="center" gap={2} wrap="wrap">
                   <Badge colorPalette="teal">{expense.category}</Badge>
-                  <Badge colorPalette={expense.source?.[0]?.name ? "blue" : "gray"} variant="subtle">
-                    {expense.source?.[0]?.name ?? "Tidak Terkategorisasi"}
+                  <Badge colorPalette={expense.source?.name ? "blue" : "gray"} variant="subtle">
+                    {expense.source?.name ?? "Tidak Terkategorisasi"}
                   </Badge>
                   {expense.stock_item_id && (
                     <Badge colorPalette="purple" variant="subtle">

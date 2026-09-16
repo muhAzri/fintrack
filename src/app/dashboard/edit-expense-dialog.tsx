@@ -136,7 +136,7 @@ export function EditExpenseDialog({
                     <Input
                       name="sourceName"
                       list="expense-source-names-edit"
-                      defaultValue={expense.source?.[0]?.name ?? ""}
+                      defaultValue={expense.source?.name ?? ""}
                       placeholder="BCA, GoPay, dst."
                       autoComplete="off"
                     />
