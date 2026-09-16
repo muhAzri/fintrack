@@ -1,7 +1,7 @@
 import { Badge, Card, Flex, Stack, Text } from "@chakra-ui/react";
 import { DeleteExpenseButton } from "./delete-expense-button";
 import { EditExpenseDialog } from "./edit-expense-dialog";
-import type { Expense } from "@/lib/types";
+import type { Expense, ExpenseSource } from "@/lib/types";
 import { currency } from "@/lib/format";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
@@ -9,7 +9,13 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   month: "short",
 });
 
-export function ExpenseList({ expenses }: { expenses: Expense[] }) {
+export function ExpenseList({
+  expenses,
+  sources,
+}: {
+  expenses: Expense[];
+  sources: ExpenseSource[];
+}) {
   if (expenses.length === 0) {
     return (
       <Card.Root variant="subtle">
@@ -29,6 +35,9 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
               <Stack gap={1}>
                 <Flex align="center" gap={2} wrap="wrap">
                   <Badge colorPalette="teal">{expense.category}</Badge>
+                  <Badge colorPalette={expense.source?.[0]?.name ? "blue" : "gray"} variant="subtle">
+                    {expense.source?.[0]?.name ?? "Tidak Terkategorisasi"}
+                  </Badge>
                   {expense.stock_item_id && (
                     <Badge colorPalette="purple" variant="subtle">
                       Stok · {Number(expense.quantity)}
@@ -45,7 +54,7 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
                 <Text fontWeight="semibold" whiteSpace="nowrap">
                   {currency.format(Number(expense.amount))}
                 </Text>
-                <EditExpenseDialog expense={expense} />
+                <EditExpenseDialog expense={expense} sources={sources} />
                 <DeleteExpenseButton
                   id={expense.id}
                   label={`${expense.category} - ${currency.format(Number(expense.amount))}`}

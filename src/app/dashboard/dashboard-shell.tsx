@@ -6,15 +6,17 @@ import { FiBarChart2, FiPackage, FiSettings } from "react-icons/fi";
 import { Box, Container, Flex, Heading, IconButton, Text } from "@chakra-ui/react";
 import { BottomNav } from "./bottom-nav";
 import { AddExpenseSheet } from "./add-expense-sheet";
-import type { StockItem } from "@/lib/types";
+import type { ExpenseSource, StockItem } from "@/lib/types";
 
 export function DashboardShell({
   userEmail,
   stockItems,
+  sources,
   children,
 }: {
   userEmail: string;
   stockItems: StockItem[];
+  sources: ExpenseSource[];
   children: React.ReactNode;
 }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -80,7 +82,12 @@ export function DashboardShell({
       </Container>
 
       <BottomNav onAddClick={() => setAddOpen(true)} />
-      <AddExpenseSheet open={addOpen} onOpenChange={setAddOpen} stockItems={stockItems} />
+      <AddExpenseSheet
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        stockItems={stockItems}
+        sources={sources}
+      />
     </Box>
   );
 }

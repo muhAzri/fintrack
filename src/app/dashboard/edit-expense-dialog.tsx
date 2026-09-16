@@ -15,10 +15,16 @@ import {
   Stack,
 } from "@chakra-ui/react";
 import { updateExpense } from "./actions";
-import { CATEGORIES, type Expense } from "@/lib/types";
+import { CATEGORIES, type Expense, type ExpenseSource } from "@/lib/types";
 import { toaster } from "@/components/ui/toaster";
 
-export function EditExpenseDialog({ expense }: { expense: Expense }) {
+export function EditExpenseDialog({
+  expense,
+  sources,
+}: {
+  expense: Expense;
+  sources: ExpenseSource[];
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -108,6 +114,23 @@ export function EditExpenseDialog({ expense }: { expense: Expense }) {
                   <Field.Root>
                     <Field.Label>Catatan (opsional)</Field.Label>
                     <Input name="note" defaultValue={expense.note ?? ""} />
+                  </Field.Root>
+
+                  <Field.Root>
+                    <Field.Label>Sumber dana (opsional)</Field.Label>
+                    <Input
+                      name="sourceName"
+                      list="expense-source-names-edit"
+                      defaultValue={expense.source?.[0]?.name ?? ""}
+                      placeholder="BCA, GoPay, dst."
+                      autoComplete="off"
+                    />
+                    <datalist id="expense-source-names-edit">
+                      {sources.map((source) => (
+                        <option key={source.id} value={source.name} />
+                      ))}
+                    </datalist>
+                    <Field.HelperText>Kosongkan untuk Tidak Terkategorisasi.</Field.HelperText>
                   </Field.Root>
                 </Stack>
               </Dialog.Body>

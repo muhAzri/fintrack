@@ -17,7 +17,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { addExpense, type ExpenseFormState } from "./actions";
-import { CATEGORIES, COSTING_METHODS, type StockItem } from "@/lib/types";
+import { CATEGORIES, COSTING_METHODS, type ExpenseSource, type StockItem } from "@/lib/types";
 import { toaster } from "@/components/ui/toaster";
 
 const initialState: ExpenseFormState = {};
@@ -128,9 +128,11 @@ function StockPurchaseFields({ stockItems }: { stockItems: StockItem[] }) {
 
 export function ExpenseForm({
   stockItems,
+  sources,
   onSuccess,
 }: {
   stockItems: StockItem[];
+  sources: ExpenseSource[];
   onSuccess?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(addExpense, initialState);
@@ -208,6 +210,21 @@ export function ExpenseForm({
             <Field.Root>
               <Field.Label>Catatan (opsional)</Field.Label>
               <Input name="note" placeholder="Makan siang di kantor" />
+            </Field.Root>
+
+            <Field.Root>
+              <Field.Label>Sumber dana (opsional)</Field.Label>
+              <Input
+                name="sourceName"
+                list="expense-source-names"
+                placeholder="BCA, GoPay, dst."
+                autoComplete="off"
+              />
+              <datalist id="expense-source-names">
+                {sources.map((source) => (
+                  <option key={source.id} value={source.name} />
+                ))}
+              </datalist>
             </Field.Root>
 
             <StockPurchaseFields key={formKey} stockItems={stockItems} />

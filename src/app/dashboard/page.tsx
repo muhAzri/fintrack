@@ -21,26 +21,31 @@ export default async function DashboardPage() {
   const startOfPreviousMonth = getPreviousMonthBounds(now).start;
   const today = now.toISOString().slice(0, 10);
 
-  const [{ data }, { data: stockItemsData }, { data: usagesData }] = await Promise.all([
-    supabase
-      .from("expenses")
-      .select("id, amount, category, note, spent_at, stock_item_id, quantity")
-      .gte("spent_at", startOfPreviousMonth)
-      .order("spent_at", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("stock_items")
-      .select("id, name, unit_label, category, costing_method, quantity_on_hand, avg_unit_cost")
-      .order("name", { ascending: true }),
-    supabase
-      .from("stock_usages")
-      .select("id, quantity, realized_amount, used_at, note, stock_item:stock_items(name, category)")
-      .gte("used_at", startOfPreviousMonth),
-  ]);
+  const [{ data }, { data: stockItemsData }, { data: usagesData }, { data: sourcesData }] =
+    await Promise.all([
+      supabase
+        .from("expenses")
+        .select(
+          "id, amount, category, note, spent_at, stock_item_id, quantity, source_id, source:expense_sources(name)",
+        )
+        .gte("spent_at", startOfPreviousMonth)
+        .order("spent_at", { ascending: false })
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("stock_items")
+        .select("id, name, unit_label, category, costing_method, quantity_on_hand, avg_unit_cost")
+        .order("name", { ascending: true }),
+      supabase
+        .from("stock_usages")
+        .select("id, quantity, realized_amount, used_at, note, stock_item:stock_items(name, category)")
+        .gte("used_at", startOfPreviousMonth),
+      supabase.from("expense_sources").select("id, name").order("name", { ascending: true }),
+    ]);
 
   const allExpenses = data ?? [];
   const stockItems = stockItemsData ?? [];
   const usages = usagesData ?? [];
+  const sources = sourcesData ?? [];
 
   const { currentMonthExpenses, previousMonthExpenses } = splitByMonth(allExpenses, now);
   const expenses = currentMonthExpenses;
@@ -193,10 +198,10 @@ export default async function DashboardPage() {
       )}
 
       <Box display={{ base: "none", md: "block" }}>
-        <ExpenseForm stockItems={stockItems} />
+        <ExpenseForm stockItems={stockItems} sources={sources} />
       </Box>
 
-      <ExpenseList expenses={expenses} />
+      <ExpenseList expenses={expenses} sources={sources} />
     </Stack>
   );
 }

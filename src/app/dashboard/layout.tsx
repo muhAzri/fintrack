@@ -14,13 +14,20 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { data: stockItemsData } = await supabase
-    .from("stock_items")
-    .select("id, name, unit_label, category, costing_method, quantity_on_hand, avg_unit_cost")
-    .order("name", { ascending: true });
+  const [{ data: stockItemsData }, { data: sourcesData }] = await Promise.all([
+    supabase
+      .from("stock_items")
+      .select("id, name, unit_label, category, costing_method, quantity_on_hand, avg_unit_cost")
+      .order("name", { ascending: true }),
+    supabase.from("expense_sources").select("id, name").order("name", { ascending: true }),
+  ]);
 
   return (
-    <DashboardShell userEmail={user.email ?? ""} stockItems={stockItemsData ?? []}>
+    <DashboardShell
+      userEmail={user.email ?? ""}
+      stockItems={stockItemsData ?? []}
+      sources={sourcesData ?? []}
+    >
       {children}
     </DashboardShell>
   );

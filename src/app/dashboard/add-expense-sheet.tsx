@@ -3,16 +3,18 @@
 import { FiX } from "react-icons/fi";
 import { Drawer, IconButton, Portal } from "@chakra-ui/react";
 import { ExpenseForm } from "./expense-form";
-import type { StockItem } from "@/lib/types";
+import type { ExpenseSource, StockItem } from "@/lib/types";
 
 export function AddExpenseSheet({
   open,
   onOpenChange,
   stockItems,
+  sources,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stockItems: StockItem[];
+  sources: ExpenseSource[];
 }) {
   return (
     <Drawer.Root
@@ -35,7 +37,11 @@ export function AddExpenseSheet({
               </IconButton>
             </Drawer.CloseTrigger>
             <Drawer.Body pt={6}>
-              <ExpenseForm stockItems={stockItems} onSuccess={() => onOpenChange(false)} />
+              <ExpenseForm
+                stockItems={stockItems}
+                sources={sources}
+                onSuccess={() => onOpenChange(false)}
+              />
             </Drawer.Body>
           </Drawer.Content>
         </Drawer.Positioner>
