@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiBarChart2, FiHome, FiPackage, FiPlus, FiSettings } from "react-icons/fi";
+import { FiBarChart2, FiClock, FiHome, FiPackage, FiPlus, FiSettings } from "react-icons/fi";
 import { Box, Flex, Icon, IconButton, Text } from "@chakra-ui/react";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard", icon: FiHome, exact: true },
   { href: "/dashboard/analytics", label: "Analisis", icon: FiBarChart2, exact: false },
+  { href: "/dashboard/history", label: "Riwayat", icon: FiClock, exact: false },
   { href: "/dashboard/stock", label: "Stok", icon: FiPackage, exact: false },
   { href: "/dashboard/settings", label: "Akun", icon: FiSettings, exact: false },
 ] as const;

@@ -64,6 +64,19 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
         <ViewToggle view={view} basePath="/dashboard/analytics" />
       </Stack>
 
+      <Card.Root variant="outline">
+        <Card.Body>
+          <Flex align="center" justify="space-between" gap={4} wrap="wrap">
+            <Text color="fg.muted" fontSize="sm">
+              Mau lihat transaksi bulan-bulan sebelumnya satu per satu?
+            </Text>
+            <Button asChild size="sm" variant="ghost" colorPalette="teal">
+              <Link href="/dashboard/history">Buka riwayat transaksi →</Link>
+            </Button>
+          </Flex>
+        </Card.Body>
+      </Card.Root>
+
       <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4}>
         <Card.Root variant="elevated">
           <Card.Body>

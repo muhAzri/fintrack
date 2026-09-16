@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FiBarChart2, FiPackage, FiSettings } from "react-icons/fi";
+import { FiBarChart2, FiClock, FiPackage, FiSettings } from "react-icons/fi";
 import { Box, Container, Flex, Heading, IconButton, Text } from "@chakra-ui/react";
 import { BottomNav } from "./bottom-nav";
 import { AddExpenseSheet } from "./add-expense-sheet";
@@ -48,6 +48,17 @@ export function DashboardShell({
               >
                 <Link href="/dashboard/analytics">
                   <FiBarChart2 />
+                </Link>
+              </IconButton>
+              <IconButton
+                asChild
+                variant="ghost"
+                size="sm"
+                aria-label="Riwayat transaksi"
+                display={{ base: "none", md: "inline-flex" }}
+              >
+                <Link href="/dashboard/history">
+                  <FiClock />
                 </Link>
               </IconButton>
               <IconButton
