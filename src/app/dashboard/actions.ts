@@ -8,6 +8,42 @@ export type ExpenseFormState = {
   error?: string;
 };
 
+async function resolveSourceId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  rawName: string,
+): Promise<{ id: string | null; error?: string }> {
+  const name = rawName.trim();
+  if (!name) return { id: null };
+
+  const { data: sources } = await supabase
+    .from("expense_sources")
+    .select("id, name")
+    .eq("user_id", userId);
+
+  const match = (sources ?? []).find((s) => s.name.toLowerCase() === name.toLowerCase());
+  if (match) return { id: match.id };
+
+  const { data: created, error } = await supabase
+    .from("expense_sources")
+    .insert({ user_id: userId, name })
+    .select("id")
+    .single();
+
+  if (!error) return { id: created.id };
+
+  if (error.code === "23505") {
+    const { data: retry } = await supabase
+      .from("expense_sources")
+      .select("id, name")
+      .eq("user_id", userId);
+    const retryMatch = (retry ?? []).find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (retryMatch) return { id: retryMatch.id };
+  }
+
+  return { id: null, error: "Gagal menyimpan sumber pengeluaran." };
+}
+
 export async function addExpense(
   _prevState: ExpenseFormState,
   formData: FormData,
@@ -24,9 +60,15 @@ export async function addExpense(
   const amount = Number(formData.get("amount"));
   const category = String(formData.get("category") ?? CATEGORIES.at(-1));
   const note = String(formData.get("note") ?? "").trim();
+  const sourceName = String(formData.get("sourceName") ?? "");
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Jumlah harus berupa angka lebih dari 0." };
+  }
+
+  const { id: sourceId, error: sourceError } = await resolveSourceId(supabase, user.id, sourceName);
+  if (sourceError) {
+    return { error: sourceError };
   }
 
   const isStockPurchase = formData.get("isStockPurchase") === "on";
@@ -47,7 +89,7 @@ export async function addExpense(
       return { error: "Isi/jumlah satuan harus lebih dari 0." };
     }
 
-    const { error } = await supabase.rpc("create_stock_purchase", {
+    const { data: expenseId, error } = await supabase.rpc("create_stock_purchase", {
       p_amount: amount,
       p_category: category,
       p_note: note || null,
@@ -60,12 +102,21 @@ export async function addExpense(
     if (error) {
       return { error: "Gagal menyimpan pembelian stok. Coba lagi." };
     }
+
+    if (sourceId && expenseId) {
+      await supabase
+        .from("expenses")
+        .update({ source_id: sourceId })
+        .eq("id", expenseId)
+        .eq("user_id", user.id);
+    }
   } else {
     const { error } = await supabase.from("expenses").insert({
       user_id: user.id,
       amount,
       category,
       note: note || null,
+      source_id: sourceId,
     });
 
     if (error) {
@@ -96,14 +147,20 @@ export async function updateExpense(
   const amount = Number(formData.get("amount"));
   const category = String(formData.get("category") ?? CATEGORIES.at(-1));
   const note = String(formData.get("note") ?? "").trim();
+  const sourceName = String(formData.get("sourceName") ?? "");
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Jumlah harus berupa angka lebih dari 0." };
   }
 
+  const { id: sourceId, error: sourceError } = await resolveSourceId(supabase, user.id, sourceName);
+  if (sourceError) {
+    return { error: sourceError };
+  }
+
   const { error } = await supabase
     .from("expenses")
-    .update({ amount, category, note: note || null })
+    .update({ amount, category, note: note || null, source_id: sourceId })
     .eq("id", id)
     .eq("user_id", user.id);
 
