@@ -19,6 +19,13 @@ export type Expense = {
   spent_at: string;
   stock_item_id?: string | null;
   quantity?: number | null;
+  source_id?: string | null;
+  source?: { name: string }[] | null;
+};
+
+export type ExpenseSource = {
+  id: string;
+  name: string;
 };
 
 export const COSTING_METHODS = ["average", "fifo"] as const;
