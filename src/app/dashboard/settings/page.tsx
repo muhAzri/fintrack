@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
-import { Button, Heading, HStack, Separator, Stack, Text } from "@chakra-ui/react";
+import { Button, Card, Flex, Heading, HStack, Separator, Stack, Text } from "@chakra-ui/react";
 import { ChangePasswordForm } from "./change-password-form";
 import { signOut } from "@/lib/actions/auth";
 
@@ -25,6 +25,22 @@ export default function SettingsPage() {
         <Heading size="lg">Pengaturan Akun</Heading>
         <Text color="fg.muted">Kelola keamanan akunmu di sini.</Text>
       </Stack>
+
+      <Card.Root variant="outline">
+        <Card.Body>
+          <Flex align="center" justify="space-between" gap={4} wrap="wrap">
+            <Stack gap={1}>
+              <Text fontWeight="semibold">Sumber Pengeluaran</Text>
+              <Text color="fg.muted" fontSize="sm">
+                Kelola rekening atau e-wallet yang kamu pakai untuk mencatat asal pengeluaran.
+              </Text>
+            </Stack>
+            <Button asChild size="sm" variant="outline" colorPalette="teal">
+              <Link href="/dashboard/sources">Kelola →</Link>
+            </Button>
+          </Flex>
+        </Card.Body>
+      </Card.Root>
 
       <ChangePasswordForm />
 
