@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Text } from "@chakra-ui/react";
+import { Badge, Button, Card, Flex, Heading, SimpleGrid, Stack, Stat, Table, Text } from "@chakra-ui/react";
 import { createClient } from "@/lib/supabase/server";
 import { currency } from "@/lib/format";
 import {
+  computeCategoryDailyAverages,
   computeMonthOverMonth,
   getPreviousMonthBounds,
   groupByCategory,
@@ -41,6 +42,7 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
 
   const categoryBreakdown = groupByCategory(currentMonthExpenses);
   const comparison = computeMonthOverMonth(currentMonthExpenses, previousMonthExpenses, now);
+  const dailyAverages = computeCategoryDailyAverages(currentMonthExpenses, previousMonthExpenses, now);
 
   return (
     <Stack gap={8}>
@@ -132,6 +134,47 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
           <Card.Root variant="subtle">
             <Card.Body textAlign="center" color="fg.muted" py={10}>
               <Text>Belum ada pengeluaran tercatat bulan ini.</Text>
+            </Card.Body>
+          </Card.Root>
+        )}
+      </Stack>
+
+      <Stack gap={3}>
+        <Heading size="md">Rata-rata pengeluaran harian per kategori</Heading>
+        <Text color="fg.muted" fontSize="sm">
+          Bulan ini dibagi {now.getDate()} hari berjalan; bulan lalu dibagi {comparison.previousMonthDayCount} hari penuh.
+        </Text>
+        {dailyAverages.length > 0 ? (
+          <Card.Root variant="outline">
+            <Card.Body>
+              <Table.ScrollArea>
+                <Table.Root size="sm">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeader>Kategori</Table.ColumnHeader>
+                      <Table.ColumnHeader textAlign="end">Bulan ini / hari</Table.ColumnHeader>
+                      <Table.ColumnHeader textAlign="end">Bulan lalu / hari</Table.ColumnHeader>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {dailyAverages.map((row) => (
+                      <Table.Row key={row.category}>
+                        <Table.Cell>{row.category}</Table.Cell>
+                        <Table.Cell textAlign="end">{currency.format(Math.round(row.currentAverage))}</Table.Cell>
+                        <Table.Cell textAlign="end" color="fg.muted">
+                          {currency.format(Math.round(row.previousAverage))}
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Table.ScrollArea>
+            </Card.Body>
+          </Card.Root>
+        ) : (
+          <Card.Root variant="subtle">
+            <Card.Body textAlign="center" color="fg.muted" py={10}>
+              <Text>Belum ada pengeluaran untuk dihitung rata-ratanya.</Text>
             </Card.Body>
           </Card.Root>
         )}

@@ -178,3 +178,35 @@ export function buildDailySeries(
     };
   });
 }
+
+export type CategoryDailyAverage = {
+  category: string;
+  currentAverage: number;
+  previousAverage: number;
+};
+
+/**
+ * Average spend per day for each category. The current month is divided by the
+ * days elapsed so far (not the full month length) so a half-finished month
+ * isn't understated; the previous month uses its full length.
+ */
+export function computeCategoryDailyAverages(
+  currentMonthExpenses: Expense[],
+  previousMonthExpenses: Expense[],
+  today: Date,
+): CategoryDailyAverage[] {
+  const elapsedDays = Math.max(today.getDate(), 1);
+  const previousDays = daysInMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+
+  const currentTotals = new Map(groupByCategory(currentMonthExpenses).map((entry) => [entry.category, entry.total]));
+  const previousTotals = new Map(groupByCategory(previousMonthExpenses).map((entry) => [entry.category, entry.total]));
+  const categories = new Set([...currentTotals.keys(), ...previousTotals.keys()]);
+
+  return Array.from(categories)
+    .map((category) => ({
+      category,
+      currentAverage: (currentTotals.get(category) ?? 0) / elapsedDays,
+      previousAverage: (previousTotals.get(category) ?? 0) / previousDays,
+    }))
+    .sort((a, b) => b.currentAverage - a.currentAverage || b.previousAverage - a.previousAverage);
+}
